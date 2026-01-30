@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 
-const router = Router();
+// Добавили явный тип : Router
+const router: Router = Router();
 const prisma = new PrismaClient();
 
 // Получить все заявки (для админки)
 router.get('/', async (req, res) => {
-  const requests = await prisma.request.findMany({ orderBy: { createdAt: 'desc' } });
+  const requests = await prisma.request.findMany({ 
+    orderBy: { createdAt: 'desc' } 
+  });
   res.json(requests);
 });
 
