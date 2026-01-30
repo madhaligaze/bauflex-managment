@@ -23,8 +23,8 @@
 
     /* Linting (Смягченные настройки) */
     "strict": true,
-    "noUnusedLocals": false,       /* Теперь не будет ругаться на забытые переменные */
-    "noUnusedParameters": false,   /* И на неиспользуемые аргументы функций */
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
 
     /* Aliases */
@@ -33,6 +33,12 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "server.ts"], 
+  "include": [
+    "src",              /* Фронтенд */
+    "server.ts",        /* Сервер */
+    "routes/**/*.ts",   /* Все роуты */
+    "prisma/**/*.ts"    /* Сиды и скрипты базы данных */
+  ],
+  "exclude": ["node_modules", "dist"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
