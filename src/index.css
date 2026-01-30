@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    /* Меняем на Manrope, как договаривались для премиальности */
+    font-family: 'Manrope', system-ui, sans-serif;
+  }
+  
+  body {
+    /* УБИРАЕМ bg-slate-50. Оставляем только текст */
+    @apply text-slate-900 antialiased;
+    background: transparent; 
+  }
+}
+
+/* Кастомный скроллбар (делаем его более тонким и стеклянным) */
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 20px;
+}

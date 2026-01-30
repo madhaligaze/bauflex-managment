@@ -1,0 +1,131 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { $api } from '@/shared/api/base';
+
+// --- Types ---
+export interface Employee {
+  id: string;
+  fullName: string;
+  department: string;
+  position: string;
+}
+
+export interface RequestEntry {
+  id: string;
+  type: 'siz' | 'tools' | 'equipment' | 'consumables';
+  user: string;
+  date: string;
+  status: 'Новая' | 'В работе' | 'Завершена';
+  details: any;
+  createdAt?: string; // Поле из БД
+}
+
+interface BauflexStore {
+  requests: RequestEntry[];
+  employees: Employee[];
+  isLoading: boolean;
+  
+  // Действия для заявок
+  fetchRequests: () => Promise<void>;
+  addRequest: (request: Omit<RequestEntry, 'id' | 'date' | 'status'>) => Promise<void>;
+  updateStatus: (id: string, status: RequestEntry['status']) => Promise<void>;
+  
+  // Действия для сотрудников
+  fetchEmployees: () => Promise<void>; // Добавили загрузку списка
+  addEmployee: (emp: Omit<Employee, 'id'>) => Promise<void>;
+  removeEmployee: (id: string) => Promise<void>;
+}
+
+// --- Store ---
+export const useBauflexStore = create<BauflexStore>()(
+  persist(
+    (set) => ({
+      requests: [],
+      employees: [],
+      isLoading: false,
+
+      // 1. Загрузка всех заявок (для Админки)
+      fetchRequests: async () => {
+        set({ isLoading: true });
+        try {
+          const response = await $api.get('/requests');
+          set({ requests: response.data });
+        } catch (e) {
+          console.error('Ошибка при получении списка заявок с сервера');
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      // 2. Загрузка всех сотрудников (для выбора в формах и управления)
+      fetchEmployees: async () => {
+        try {
+          const response = await $api.get('/employees');
+          set({ employees: response.data });
+        } catch (e) {
+          console.error('Ошибка при получении списка сотрудников');
+        }
+      },
+
+      // 3. Создание новой заявки
+      addRequest: async (data) => {
+        set({ isLoading: true });
+        try {
+          const response = await $api.post('/requests', data);
+          set((state) => ({
+            requests: [response.data, ...state.requests]
+          }));
+        } catch (e) {
+          console.error('Ошибка сохранения заявки на сервере');
+          throw e; 
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      // 4. Обновление статуса
+      updateStatus: async (id, status) => {
+        try {
+          const response = await $api.patch(`/requests/${id}`, { status });
+          set((state) => ({
+            requests: state.requests.map((r) => 
+              r.id === id ? { ...r, status: response.data.status } : r
+            )
+          }));
+        } catch (e) {
+          console.error('Не удалось обновить статус на сервере');
+        }
+      },
+
+      // 5. Регистрация сотрудника
+      addEmployee: async (data) => {
+        try {
+          const response = await $api.post('/employees', data);
+          set((state) => ({
+            employees: [...state.employees, response.data]
+          }));
+        } catch (e) {
+          console.error('Ошибка при регистрации сотрудника');
+        }
+      },
+
+      // 6. Удаление сотрудника
+      removeEmployee: async (id) => {
+        try {
+          await $api.delete(`/employees/${id}`);
+          set((state) => ({
+            employees: state.employees.filter((e) => e.id !== id)
+          }));
+        } catch (e) {
+          console.error('Ошибка при удалении сотрудника');
+        }
+      }
+    }),
+    { 
+      name: 'bauflex-pro-storage',
+      // Оставляем в localStorage только сотрудников для быстрой подгрузки форм,
+      // а заявки всегда будем тянуть свежие с сервера в админке.
+      partialize: (state) => ({ employees: state.employees })
+    }
+  )
+);

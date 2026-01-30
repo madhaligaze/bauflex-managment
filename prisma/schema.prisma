@@ -1,0 +1,47 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id       String @id @default(uuid())
+  login    String @unique
+  password String
+  role     Role   @default(USER)
+  name     String
+}
+
+model Request {
+  id        String   @id @default(uuid())
+  type      String
+  user      String
+  details   Json
+  status    String   @default("Новая")
+  createdAt DateTime @default(now())
+}
+
+model Employee {
+  id         String @id @default(uuid())
+  fullName   String
+  department String
+  position   String
+  createdAt  DateTime @default(now())
+}
+
+model UserWithPassword {
+  id        String   @id @default(uuid())
+  login     String   @unique
+  password  String   // Здесь будет храниться хеш (bcrypt)
+  name      String
+  role      String   @default("ADMIN")
+  createdAt DateTime @default(now())
+}
