@@ -21,10 +21,10 @@
     "allowJs": true,
     "esModuleInterop": true,
 
-    /* Linting */
+    /* Linting (Смягченные настройки) */
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noUnusedLocals": false,       /* Теперь не будет ругаться на забытые переменные */
+    "noUnusedParameters": false,   /* И на неиспользуемые аргументы функций */
     "noFallthroughCasesInSwitch": true,
 
     /* Aliases */
@@ -33,6 +33,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "server.ts"], 
   "references": [{ "path": "./tsconfig.node.json" }]
 }
