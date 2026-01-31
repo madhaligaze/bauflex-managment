@@ -230,8 +230,7 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
           onClose={() => {
             setIsEditModalOpen(false);
             setEditingEmployee(null);
-          }}
-        />
+          } } isOpen={false}        />
       )}
     </div>
   );
@@ -314,7 +313,7 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
         {/* Табы */}
         <div className="flex gap-2 mb-6 p-1 bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl">
           {[
-            { id: 'dashboard', label: 'Дашборд', icon: LayoutDashboard },
+            { id: 'dashboard', label: 'Панель управления', icon: LayoutDashboard },
             { id: 'requests', label: 'Заявки', icon: FileSpreadsheet },
             { id: 'users', label: 'Сотрудники', icon: Users },
             { id: 'security', label: 'Безопасность', icon: Lock }
