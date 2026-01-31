@@ -5,22 +5,20 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-  "dev:server": "tsx watch server.ts",
-  "dev:all": "concurrently \"npm run dev:server\" \"npm run dev\"",
-
-  "prisma:generate": "prisma generate",
-  "prisma:push": "prisma db push",
-
-  "build": "npm run prisma:generate && npm run build:client && npm run build:server",
-  "build:client": "vite build",
-  "build:server": "tsup server.ts --format esm --out-dir dist --clean --no-splitting",
-
-  "start": "node dist/server.js",
-  "lint": "eslint ."
+    "dev:server": "tsx watch server.ts",
+    "dev:all": "concurrently \"npm run dev:server\" \"npm run dev\"",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push",
+    "build": "npm run prisma:generate && npm run build:client && npm run build:server",
+    "build:client": "vite build",
+    "build:server": "tsup server.ts --format esm --out-dir dist --clean --no-splitting",
+    "start": "node dist/server.js",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
     "@prisma/client": "^5.22.0",
+    "@prisma/server": "^0.0.0",
     "@tanstack/react-query": "^5.60.0",
     "axios": "^1.7.0",
     "bcryptjs": "^2.4.3",
