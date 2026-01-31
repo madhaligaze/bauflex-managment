@@ -34,9 +34,10 @@ interface BauflexStore {
   fetchRequests: () => Promise<void>;
   addRequest: (request: Omit<RequestEntry, 'id' | 'date' | 'status'>) => Promise<void>;
   updateStatus: (id: string, status: RequestEntry['status']) => Promise<void>;
+  deleteRequest: (id: string) => Promise<void>; // Добавлено
   
   // Действия для сотрудников
-  fetchEmployees: () => Promise<void>; // Добавили загрузку списка
+  fetchEmployees: () => Promise<void>;
   addEmployee: (emp: Omit<Employee, 'id'>) => Promise<void>;
   updateEmployee: (id: string, data: Partial<Employee>) => Promise<void>;
   removeEmployee: (id: string) => Promise<void>;
@@ -57,7 +58,7 @@ export const useBauflexStore = create<BauflexStore>()(
           const response = await $api.get('/requests');
           set({ requests: response.data });
         } catch (e) {
-          console.error('Ошибка при получении списка заявок с сервера');
+          console.error('Ошибка при получении списка заявок с сервера:', e);
         } finally {
           set({ isLoading: false });
         }
@@ -69,7 +70,7 @@ export const useBauflexStore = create<BauflexStore>()(
           const response = await $api.get('/employees');
           set({ employees: response.data });
         } catch (e) {
-          console.error('Ошибка при получении списка сотрудников');
+          console.error('Ошибка при получении списка сотрудников:', e);
         }
       },
 
@@ -82,7 +83,7 @@ export const useBauflexStore = create<BauflexStore>()(
             requests: [response.data, ...state.requests]
           }));
         } catch (e) {
-          console.error('Ошибка сохранения заявки на сервере');
+          console.error('Ошибка сохранения заявки на сервере:', e);
           throw e; 
         } finally {
           set({ isLoading: false });
@@ -99,11 +100,24 @@ export const useBauflexStore = create<BauflexStore>()(
             )
           }));
         } catch (e) {
-          console.error('Не удалось обновить статус на сервере');
+          console.error('Не удалось обновить статус на сервере:', e);
         }
       },
 
-      // 5. Регистрация сотрудника
+      // 5. Удаление заявки (НОВОЕ)
+      deleteRequest: async (id) => {
+        try {
+          await $api.delete(`/requests/${id}`);
+          set((state) => ({
+            requests: state.requests.filter((r) => r.id !== id)
+          }));
+        } catch (e) {
+          console.error('Ошибка при удалении заявки:', e);
+          throw e;
+        }
+      },
+
+      // 6. Регистрация сотрудника
       addEmployee: async (data) => {
         try {
           const response = await $api.post('/employees', data);
@@ -111,11 +125,11 @@ export const useBauflexStore = create<BauflexStore>()(
             employees: [...state.employees, response.data]
           }));
         } catch (e) {
-          console.error('Ошибка при регистрации сотрудника');
+          console.error('Ошибка при регистрации сотрудника:', e);
         }
       },
 
-      // 6. Обновление данных сотрудника
+      // 7. Обновление данных сотрудника
       updateEmployee: async (id, data) => {
         try {
           const response = await $api.patch(`/employees/${id}`, data);
@@ -125,11 +139,11 @@ export const useBauflexStore = create<BauflexStore>()(
             )
           }));
         } catch (e) {
-          console.error('Ошибка при обновлении данных сотрудника');
+          console.error('Ошибка при обновлении данных сотрудника:', e);
         }
       },
 
-      // 7. Удаление сотрудника
+      // 8. Удаление сотрудника
       removeEmployee: async (id) => {
         try {
           await $api.delete(`/employees/${id}`);
@@ -137,7 +151,7 @@ export const useBauflexStore = create<BauflexStore>()(
             employees: state.employees.filter((e) => e.id !== id)
           }));
         } catch (e) {
-          console.error('Ошибка при удалении сотрудника');
+          console.error('Ошибка при удалении сотрудника:', e);
         }
       }
     }),
