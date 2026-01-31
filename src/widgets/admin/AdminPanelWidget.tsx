@@ -7,7 +7,7 @@ import { exportToExcel, exportToPDF } from '@/shared/lib/exportService';
 import { EmployeeEditModal } from '@/widgets/admin/EmployeeEditModal';
 
 // Модульные компоненты
-import { RefreshButton } from './components/RefreshButton'; // ✅ ШАГ 1: Импорт
+import { RefreshButton } from './components/RefreshButton';
 import { RequestsTable } from './components/RequestsTable';
 import { RequestDetails } from './components/RequestDetails';
 import { EmployeesTable } from './components/EmployeesTable';
@@ -15,15 +15,14 @@ import { Dashboard } from './components/Dashboard';
 
 import { 
   LayoutDashboard, FileSpreadsheet, FileType, 
-  Search, Users, UserPlus, Lock, LogOut,
-  Settings
+  Search, Users, UserPlus, Lock, LogOut, Menu, X
 } from 'lucide-react';
 
 export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
   const { 
     requests, 
     updateStatus, 
-    updateRequest, // ✅ ШАГ 6: Добавлен updateRequest
+    updateRequest,
     deleteRequest,
     employees, 
     addEmployee, 
@@ -31,16 +30,16 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
     removeEmployee,
     fetchRequests,
     fetchEmployees,
-    lastFetch // ✅ Добавлено для RefreshButton
+    lastFetch
   } = useBauflexStore();
   
-  // ✅ ШАГ 2: Обновлен useState для activeTab (восстановление из localStorage)
+  // Восстановление activeTab из localStorage
   const [activeTab, setActiveTab] = useState<'dashboard' | 'requests' | 'users' | 'security'>(() => {
     const saved = localStorage.getItem('adminActiveTab');
     return (saved as any) || 'dashboard';
   });
 
-  // ✅ ШАГ 8: Добавлен state для фильтрации
+  // Фильтрация по статусу
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
@@ -53,20 +52,23 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [securityData, setSecurityData] = useState({ old: '', new: '' });
 
+  // Мобильное меню
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   // Загружаем данные при монтировании
   useEffect(() => {
     fetchRequests();
     fetchEmployees();
   }, []);
 
-  // ✅ ШАГ 3: Сохраняем активную вкладку при изменении
+  // Сохраняем активную вкладку при изменении
   useEffect(() => {
     localStorage.setItem('adminActiveTab', activeTab);
   }, [activeTab]);
 
   const selectedRequest = requests.find((r: RequestEntry) => r.id === selectedRequestId);
 
-  // ✅ ШАГ 8: Обновлена логика фильтрации (поиск + статус)
+  // Фильтрация заявок (поиск + статус)
   const filteredRequests = requests.filter((req: RequestEntry) => {
     const matchesSearch = req.user.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || req.status === statusFilter;
@@ -75,7 +77,6 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
 
   // --- ОБРАБОТЧИКИ ---
 
-  // ✅ ШАГ 4: Обработчик обновления
   const handleRefresh = async () => {
     await fetchRequests();
     await fetchEmployees();
@@ -112,17 +113,20 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
       return;
     }
     
-    // TODO: Реализовать смену пароля через API
     console.log('Changing password for admin');
     alert('Пароль успешно обновлен (демо)');
     setSecurityData({ old: '', new: '' });
+  };
+
+  const handleTabChange = (tab: typeof activeTab) => {
+    setActiveTab(tab);
+    setIsMobileMenuOpen(false);
   };
 
   // ==========================================
   // RENDER: DASHBOARD
   // ==========================================
   const renderDashboard = () => (
-    // ✅ ШАГ 9: Обновлен вызов Dashboard с onNavigate
     <Dashboard 
       requests={requests} 
       employees={employees} 
@@ -143,57 +147,61 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
       <Card className="flex-1 bg-slate-900/60 backdrop-blur-3xl border-white/10 p-0 overflow-hidden shadow-2xl flex flex-col">
         
         {/* Шапка с экспортом и поиском */}
-        <div className="p-4 border-b border-white/5 bg-white/5 flex flex-col md:flex-row gap-4 justify-between items-center">
-          <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
+        <div className="p-3 md:p-4 border-b border-white/5 bg-white/5 space-y-3">
+          {/* Первая строка: заголовок и кнопки */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
             <div className="flex items-center gap-2 text-white/80">
-              <FileSpreadsheet size={20} className="text-red-500" />
-              <span className="font-bold tracking-widest text-sm uppercase">Заявки</span>
+              <FileSpreadsheet size={18} className="text-red-500 flex-shrink-0" />
+              <span className="font-bold tracking-widest text-xs sm:text-sm uppercase">Заявки</span>
               <span className="bg-white/10 text-[10px] px-2 py-0.5 rounded-full text-white/50">
                 {filteredRequests.length}
               </span>
             </div>
-             
-            <div className="h-4 w-px bg-white/10 hidden sm:block" />
 
-            {/* ✅ ШАГ 5: Кнопка обновления */}
-            <RefreshButton
-              onRefresh={handleRefresh}
-              lastUpdated={lastFetch} // ✅ ИСПРАВЛЕНО: используем lastUpdated и переменную из стора
-            />
-
-            {/* Разделитель */}
-            <div className="h-4 w-px bg-white/10 hidden sm:block" />
-
+            {/* Кнопки Export - компактная версия на мобильных */}
             <div className="flex gap-2 w-full sm:w-auto">
               <Button 
                 onClick={() => exportToExcel(requests)} 
                 variant="secondary" 
                 size="sm" 
-                className="flex-1 sm:flex-none bg-white/5 border-white/10 text-white/70 hover:text-white hover:bg-emerald-500/20 transition-all text-[11px] h-9"
+                className="flex-1 sm:flex-none bg-white/5 border-white/10 text-white/70 hover:text-white hover:bg-emerald-500/20 transition-all text-[10px] sm:text-[11px] h-8 sm:h-9 px-2 sm:px-3"
               >
-                <FileSpreadsheet className="mr-2" size={14} /> EXCEL
+                <FileSpreadsheet size={12} className="sm:mr-1" />
+                <span className="hidden sm:inline ml-1">EXCEL</span>
               </Button>
               <Button 
                 onClick={() => exportToPDF(requests)} 
                 variant="secondary" 
                 size="sm" 
-                className="flex-1 sm:flex-none bg-white/5 border-white/10 text-white/70 hover:text-white hover:bg-red-500/20 transition-all text-[11px] h-9"
+                className="flex-1 sm:flex-none bg-white/5 border-white/10 text-white/70 hover:text-white hover:bg-red-500/20 transition-all text-[10px] sm:text-[11px] h-8 sm:h-9 px-2 sm:px-3"
               >
-                <FileType className="mr-2" size={14} /> PDF
+                <FileType size={12} className="sm:mr-1" />
+                <span className="hidden sm:inline ml-1">PDF</span>
               </Button>
             </div>
           </div>
 
-          {/* Поиск */}
-          <div className="relative w-full md:w-72 group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-red-400 transition-colors" size={16} />
-            <input 
-              type="text" 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Поиск по сотруднику..." 
-              className="w-full bg-black/20 border border-white/10 rounded-xl py-2 pl-10 pr-4 text-sm text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-red-500/50 focus:border-red-500/50 transition-all h-10"
-            />
+          {/* Вторая строка: кнопка обновления и поиск */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Кнопка обновления */}
+            <div className="flex-shrink-0">
+              <RefreshButton
+                onRefresh={handleRefresh}
+                lastUpdated={lastFetch}
+              />
+            </div>
+
+            {/* Поиск */}
+            <div className="relative flex-1 group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-red-400 transition-colors" size={14} />
+              <input 
+                type="text" 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Поиск по сотруднику..." 
+                className="w-full bg-black/20 border border-white/10 rounded-xl py-2 pl-9 pr-3 text-xs sm:text-sm text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-red-500/50 focus:border-red-500/50 transition-all h-9 sm:h-10"
+              />
+            </div>
           </div>
         </div>
 
@@ -215,7 +223,6 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
             handleUpdateRequestStatus(selectedRequest.id, status);
             setSelectedRequestId(null);
           }}
-          // ✅ ШАГ 7: Добавлен prop onUpdate
           onUpdate={async (data) => {
             if (updateRequest) {
               await updateRequest(selectedRequest.id, data);
@@ -231,24 +238,24 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
   // RENDER: СОТРУДНИКИ
   // ==========================================
   const renderUsers = () => (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-      {/* Кнопка добавления */}
-      <Card className="bg-gradient-to-br from-indigo-600 to-indigo-800 border-indigo-500/30 p-6 shadow-2xl shadow-indigo-900/40">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-sm">
-              <UserPlus size={24} className="text-white" />
+    <div className="space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+      {/* Кнопка добавления - адаптивная */}
+      <Card className="bg-gradient-to-br from-indigo-600 to-indigo-800 border-indigo-500/30 p-4 sm:p-6 shadow-2xl shadow-indigo-900/40">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-sm flex-shrink-0">
+              <UserPlus size={20} className="text-white sm:w-6 sm:h-6" />
             </div>
             <div>
-              <h3 className="text-lg font-black text-white uppercase tracking-widest">Новый сотрудник</h3>
-              <p className="text-white/60 text-xs font-medium mt-1">Добавить сотрудника в базу данных</p>
+              <h3 className="text-base sm:text-lg font-black text-white uppercase tracking-widest">Новый сотрудник</h3>
+              <p className="text-white/60 text-xs font-medium mt-1">Добавить в базу данных</p>
             </div>
           </div>
           <Button 
             onClick={() => handleOpenEditModal(null)}
-            className="bg-white text-indigo-900 hover:bg-gray-100 h-12 px-8 font-bold uppercase text-xs tracking-widest shadow-lg"
+            className="w-full sm:w-auto bg-white text-indigo-900 hover:bg-gray-100 h-10 sm:h-12 px-6 sm:px-8 font-bold uppercase text-xs tracking-widest shadow-lg"
           >
-            <UserPlus size={16} className="mr-2" />
+            <UserPlus size={14} className="mr-2" />
             Добавить
           </Button>
         </div>
@@ -256,10 +263,10 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
 
       {/* Таблица сотрудников */}
       <Card className="bg-slate-900/60 backdrop-blur-3xl border-white/10 p-0 overflow-hidden shadow-2xl">
-        <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+        <div className="p-3 sm:p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
           <div className="flex items-center gap-2 text-white/80">
-            <Users size={20} className="text-indigo-500" />
-            <span className="font-bold tracking-widest text-sm uppercase">Сотрудники</span>
+            <Users size={18} className="text-indigo-500" />
+            <span className="font-bold tracking-widest text-xs sm:text-sm uppercase">Сотрудники</span>
             <span className="bg-white/10 text-[10px] px-2 py-0.5 rounded-full text-white/50">
               {employees.length}
             </span>
@@ -292,46 +299,46 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
   // RENDER: БЕЗОПАСНОСТЬ
   // ==========================================
   const renderSecurity = () => (
-    <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-      <Card className="bg-slate-900/60 backdrop-blur-3xl border-white/10 p-6 shadow-2xl">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 bg-red-500/20 rounded-xl flex items-center justify-center">
-            <Lock size={24} className="text-red-400" />
+    <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+      <Card className="bg-slate-900/60 backdrop-blur-3xl border-white/10 p-4 sm:p-6 shadow-2xl">
+        <div className="flex items-center gap-3 mb-4 sm:mb-6">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+            <Lock size={20} className="text-red-400 sm:w-6 sm:h-6" />
           </div>
           <div>
-            <h3 className="text-xl font-black text-white uppercase tracking-wide">Безопасность</h3>
-            <p className="text-white/50 text-sm">Управление паролем администратора</p>
+            <h3 className="text-lg sm:text-xl font-black text-white uppercase tracking-wide">Безопасность</h3>
+            <p className="text-white/50 text-xs sm:text-sm">Управление паролем администратора</p>
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           <div>
-            <label className="block text-white/70 text-sm font-bold mb-2">Текущий пароль</label>
+            <label className="block text-white/70 text-xs sm:text-sm font-bold mb-2">Текущий пароль</label>
             <input
               type="password"
               value={securityData.old}
               onChange={(e) => setSecurityData({ ...securityData, old: e.target.value })}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-red-500/50"
               placeholder="Введите текущий пароль"
             />
           </div>
 
           <div>
-            <label className="block text-white/70 text-sm font-bold mb-2">Новый пароль</label>
+            <label className="block text-white/70 text-xs sm:text-sm font-bold mb-2">Новый пароль</label>
             <input
               type="password"
               value={securityData.new}
               onChange={(e) => setSecurityData({ ...securityData, new: e.target.value })}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-red-500/50"
               placeholder="Введите новый пароль"
             />
           </div>
 
           <Button
             onClick={handleChangePassword}
-            className="w-full bg-red-600 hover:bg-red-500 h-12 font-bold uppercase tracking-wide"
+            className="w-full bg-red-600 hover:bg-red-500 h-10 sm:h-12 font-bold uppercase tracking-wide text-xs sm:text-sm"
           >
-            <Lock size={18} className="mr-2" />
+            <Lock size={16} className="mr-2" />
             Изменить пароль
           </Button>
         </div>
@@ -343,28 +350,41 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
   // ГЛАВНЫЙ РЕНДЕР
   // ==========================================
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-3 sm:p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Шапка */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-black text-white uppercase tracking-wider mb-2">
+        {/* Шапка - адаптивная */}
+        <div className="flex items-center justify-between mb-4 sm:mb-6 md:mb-8">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg sm:text-2xl md:text-3xl font-black text-white uppercase tracking-wider mb-1 sm:mb-2 truncate">
               Панель администратора
             </h1>
-            <p className="text-white/50 text-sm">BAUFLEX Management System</p>
+            <p className="text-white/50 text-[10px] sm:text-xs md:text-sm">BAUFLEX Management System</p>
           </div>
-          <Button 
-            onClick={onLogout}
-            variant="secondary"
-            className="bg-white/5 border-white/10 hover:bg-red-500/20 hover:border-red-500/30"
-          >
-            <LogOut size={16} className="mr-2" />
-            Выйти
-          </Button>
+          
+          {/* Desktop: кнопка выхода, Mobile: меню-гамбургер */}
+          <div className="flex items-center gap-2 ml-2">
+            <Button 
+              onClick={onLogout}
+              variant="secondary"
+              size="sm"
+              className="hidden sm:flex bg-white/5 border-white/10 hover:bg-red-500/20 hover:border-red-500/30 h-9 sm:h-10"
+            >
+              <LogOut size={14} className="sm:mr-2" />
+              <span className="hidden sm:inline">Выйти</span>
+            </Button>
+
+            {/* Мобильное меню-гамбургер */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="lg:hidden w-10 h-10 flex items-center justify-center bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
+            >
+              {isMobileMenuOpen ? <X size={20} className="text-white" /> : <Menu size={20} className="text-white" />}
+            </button>
+          </div>
         </div>
 
-        {/* Табы */}
-        <div className="flex gap-2 mb-6 p-1 bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl">
+        {/* Desktop табы - скрыты на мобильных */}
+        <div className="hidden lg:flex gap-2 mb-6 p-1 bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl">
           {[
             { id: 'dashboard', label: 'Панель управления', icon: LayoutDashboard },
             { id: 'requests', label: 'Заявки', icon: FileSpreadsheet },
@@ -375,7 +395,7 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => handleTabChange(tab.id as any)}
                 className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold uppercase text-xs tracking-wider transition-all ${
                   activeTab === tab.id
                     ? 'bg-red-600 text-white shadow-lg shadow-red-600/30'
@@ -389,8 +409,73 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
           })}
         </div>
 
+        {/* Мобильное выдвижное меню */}
+        {isMobileMenuOpen && (
+          <div className="lg:hidden mb-4 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl p-2 shadow-2xl animate-in slide-in-from-top-4 duration-300">
+            <div className="space-y-1">
+              {[
+                { id: 'dashboard', label: 'Панель управления', icon: LayoutDashboard },
+                { id: 'requests', label: 'Заявки', icon: FileSpreadsheet },
+                { id: 'users', label: 'Сотрудники', icon: Users },
+                { id: 'security', label: 'Безопасность', icon: Lock }
+              ].map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => handleTabChange(tab.id as any)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
+                      activeTab === tab.id
+                        ? 'bg-red-600 text-white shadow-lg shadow-red-600/30'
+                        : 'text-white/70 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <Icon size={18} />
+                    {tab.label}
+                  </button>
+                );
+              })}
+              
+              {/* Кнопка выхода в мобильном меню */}
+              <button
+                onClick={onLogout}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all"
+              >
+                <LogOut size={18} />
+                Выйти
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Компактная навигация для планшетов (средние экраны) */}
+        <div className="hidden sm:flex lg:hidden gap-1 mb-4 p-1 bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl overflow-x-auto">
+          {[
+            { id: 'dashboard', label: 'Панель', icon: LayoutDashboard },
+            { id: 'requests', label: 'Заявки', icon: FileSpreadsheet },
+            { id: 'users', label: 'Сотрудники', icon: Users },
+            { id: 'security', label: 'Безопасность', icon: Lock }
+          ].map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id as any)}
+                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold uppercase text-[10px] tracking-wider transition-all whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'bg-red-600 text-white shadow-lg shadow-red-600/30'
+                    : 'text-white/50 hover:text-white/80 hover:bg-white/5'
+                }`}
+              >
+                <Icon size={14} />
+                <span className="hidden md:inline">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Контент */}
-        <div className="min-h-[600px]">
+        <div className="min-h-[400px] sm:min-h-[500px] md:min-h-[600px]">
           {activeTab === 'dashboard' && renderDashboard()}
           {activeTab === 'requests' && renderRequests()}
           {activeTab === 'users' && renderUsers()}
