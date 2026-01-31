@@ -1,47 +1,56 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  // Добавлены binaryTargets для совместимости с разными платформами
+  binaryTargets = ["native", "debian-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
+model User {
+  id        Int      @id @default(autoincrement())
+  login     String   @unique
+  password  String
+  name      String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Employee {
+  id         Int       @id @default(autoincrement())
+  name       String
+  position   String?
+  email      String?
+  phone      String?
+  department String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  Request    Request[]
+}
+
+model Request {
+  id              Int       @id @default(autoincrement())
+  requestNumber   String    @unique
+  employee        Employee  @relation(fields: [employeeId], references: [id])
+  employeeId      Int
+  itemName        String
+  quantity        Int
+  unit            String
+  urgency         String
+  purpose         String?
+  notes           String?
+  status          String    @default("pending")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 enum Role {
   USER
   ADMIN
-}
-
-model User {
-  id       String @id @default(uuid())
-  login    String @unique
-  password String
-  role     Role   @default(USER)
-  name     String
-}
-
-model Request {
-  id        String   @id @default(uuid())
-  type      String
-  user      String
-  details   Json
-  status    String   @default("Новая")
-  createdAt DateTime @default(now())
-}
-
-model Employee {
-  id         String @id @default(uuid())
-  fullName   String
-  department String
-  position   String
-  createdAt  DateTime @default(now())
-}
-
-model UserWithPassword {
-  id        String   @id @default(uuid())
-  login     String   @unique
-  password  String   // Здесь будет храниться хеш (bcrypt)
-  name      String
-  role      String   @default("ADMIN")
-  createdAt DateTime @default(now())
 }
