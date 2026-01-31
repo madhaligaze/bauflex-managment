@@ -1,14 +1,23 @@
 import { ReactNode, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
+import { X, CheckCircle, AlertCircle } from 'lucide-react';
+import { Button } from './Button';
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title?: string;
-  children: ReactNode;
+  children?: ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   showCloseButton?: boolean;
+  
+  // ✅ НОВЫЕ ПРОПСЫ для confirmation dialog
+  onConfirm?: () => void | Promise<void>;
+  confirmText?: string;
+  cancelText?: string;
+  description?: string;
+  isLoading?: boolean;
+  variant?: 'default' | 'danger' | 'success';
 }
 
 export const Modal = ({ 
@@ -17,7 +26,14 @@ export const Modal = ({
   title, 
   children,
   size = 'md',
-  showCloseButton = true
+  showCloseButton = true,
+  // Новые пропсы
+  onConfirm,
+  confirmText = 'Подтвердить',
+  cancelText = 'Отмена',
+  description,
+  isLoading = false,
+  variant = 'default'
 }: ModalProps) => {
   
   useEffect(() => {
@@ -31,6 +47,12 @@ export const Modal = ({
     };
   }, [isOpen]);
 
+  const handleConfirm = async () => {
+    if (onConfirm && !isLoading) {
+      await onConfirm();
+    }
+  };
+
   const sizeClasses = {
     sm: 'max-w-md',
     md: 'max-w-lg',
@@ -38,6 +60,26 @@ export const Modal = ({
     xl: 'max-w-4xl',
     full: 'max-w-7xl mx-4'
   };
+
+  const variantColors = {
+    default: {
+      accent: 'from-indigo-500 to-indigo-600',
+      button: 'bg-indigo-600 hover:bg-indigo-500',
+      glow: 'bg-indigo-500/10'
+    },
+    success: {
+      accent: 'from-green-500 to-green-600',
+      button: 'bg-green-600 hover:bg-green-500',
+      glow: 'bg-green-500/10'
+    },
+    danger: {
+      accent: 'from-red-500 to-red-600',
+      button: 'bg-red-600 hover:bg-red-500',
+      glow: 'bg-red-500/10'
+    }
+  };
+
+  const colors = variantColors[variant];
 
   return (
     <AnimatePresence>
@@ -48,7 +90,7 @@ export const Modal = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={!isLoading ? onClose : undefined}
             className="absolute inset-0 bg-slate-950/90 backdrop-blur-xl"
           />
 
@@ -70,7 +112,7 @@ export const Modal = ({
               <div className="absolute inset-0 opacity-[0.03] bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')]" />
               
               {/* Accent glow */}
-              <div className="absolute -top-40 -right-40 w-80 h-80 bg-red-500/10 rounded-full blur-3xl" />
+              <div className={`absolute -top-40 -right-40 w-80 h-80 ${colors.glow} rounded-full blur-3xl`} />
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl" />
 
               {/* Content */}
@@ -79,11 +121,11 @@ export const Modal = ({
                 {title && (
                   <div className="flex items-center justify-between p-6 border-b border-white/10 bg-white/[0.02]">
                     <h2 className="text-2xl font-black text-white uppercase tracking-tight flex items-center gap-3">
-                      <span className="w-1 h-6 bg-gradient-to-b from-red-500 to-red-600 rounded-full" />
+                      <span className={`w-1 h-6 bg-gradient-to-b ${colors.accent} rounded-full`} />
                       {title}
                     </h2>
                     
-                    {showCloseButton && (
+                    {showCloseButton && !isLoading && (
                       <motion.button
                         whileHover={{ scale: 1.1, rotate: 90 }}
                         whileTap={{ scale: 0.95 }}
@@ -98,8 +140,62 @@ export const Modal = ({
 
                 {/* Body */}
                 <div className="max-h-[calc(100vh-12rem)] overflow-y-auto custom-scrollbar">
+                  {/* Description for confirmation dialogs */}
+                  {description && !children && (
+                    <div className="p-6">
+                      <div className="flex items-start gap-4">
+                        {variant === 'success' && (
+                          <div className="w-12 h-12 rounded-2xl bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                            <CheckCircle className="text-green-400" size={24} />
+                          </div>
+                        )}
+                        {variant === 'danger' && (
+                          <div className="w-12 h-12 rounded-2xl bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                            <AlertCircle className="text-red-400" size={24} />
+                          </div>
+                        )}
+                        <p className="text-white/80 text-lg leading-relaxed flex-1 pt-2">
+                          {description}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Custom children */}
                   {children}
                 </div>
+
+                {/* Footer with action buttons (только если есть onConfirm) */}
+                {onConfirm && (
+                  <div className="flex items-center justify-end gap-3 p-6 border-t border-white/10 bg-white/[0.02]">
+                    <Button
+                      variant="ghost"
+                      onClick={onClose}
+                      disabled={isLoading}
+                      className="px-6"
+                    >
+                      {cancelText}
+                    </Button>
+                    <Button
+                      onClick={handleConfirm}
+                      disabled={isLoading}
+                      className={`px-8 ${colors.button} shadow-lg relative overflow-hidden`}
+                    >
+                      {isLoading ? (
+                        <div className="flex items-center gap-2">
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                            className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+                          />
+                          <span>Отправка...</span>
+                        </div>
+                      ) : (
+                        confirmText
+                      )}
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>

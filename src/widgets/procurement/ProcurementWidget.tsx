@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Plus, Minus, HardHat, Wrench, Truck, Package, Trash2 } from 'lucide-react';
+import { ChevronLeft, Plus, Minus, HardHat, Wrench, Truck, Package, Trash2, Loader2 } from 'lucide-react';
 
 // UI Components
 import { Button } from '@/shared/ui/Button';
@@ -12,6 +12,7 @@ import { Autocomplete } from '@/shared/ui/Autocomplete';
 
 // Store
 import { useBauflexStore } from '@/entities/request/model/store';
+import { useToastStore } from '@/shared/ui/useToast';
 
 // --- Types ---
 type ViewState = 'menu' | 'siz' | 'tools' | 'equipment' | 'consumables';
@@ -30,10 +31,11 @@ const HEIGHTS = ['140-150', '150-160', '160-170', '170-180', '180-190', '190-200
 export const ProcurementWidget = () => {
   const [view, setView] = useState<ViewState>('menu');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // --- STORE INTEGRATION ---
-  // Получаем функцию добавления и список сотрудников
   const { addRequest, employees } = useBauflexStore((state: any) => state);
+  const { success, error: showError } = useToastStore();
 
   // Состояние выбранного сотрудника (единое для всех форм)
   const [selectedEmployee, setSelectedEmployee] = useState('');
@@ -47,6 +49,37 @@ export const ProcurementWidget = () => {
   });
 
   const [items, setItems] = useState<Item[]>([{ id: Date.now(), name: '', qty: 1 }]);
+
+  // --- Validation ---
+  const validateForm = (): string | null => {
+    // Проверка выбора сотрудника
+    if (!selectedEmployee || !selectedEmployee.trim()) {
+      return 'Пожалуйста, выберите или введите ФИО сотрудника';
+    }
+
+    if (view === 'siz') {
+      // Валидация формы СИЗ
+      if (!sizForm.clothingSeason) return 'Выберите сезон одежды';
+      if (!sizForm.shoeSeason) return 'Выберите сезон обуви';
+      if (!sizForm.height) return 'Укажите рост';
+      if (!sizForm.clothingSize) return 'Выберите размер одежды';
+      if (!sizForm.shoeSize) return 'Выберите размер обуви';
+    } else {
+      // Валидация списка позиций
+      const validItems = items.filter(item => item.name && item.name.trim());
+      if (validItems.length === 0) {
+        return 'Добавьте хотя бы одну позицию с названием';
+      }
+      
+      // Проверка, что все заполненные позиции имеют количество
+      const invalidItems = validItems.filter(item => !item.qty || item.qty < 1);
+      if (invalidItems.length > 0) {
+        return 'Укажите корректное количество для всех позиций';
+      }
+    }
+
+    return null;
+  };
 
   // --- Logic ---
   const totalItems = items.length;
@@ -79,26 +112,60 @@ export const ProcurementWidget = () => {
     );
   };
 
-  const handleConfirm = () => {
-    // Валидация: сотрудник должен быть выбран
-    if (!selectedEmployee) {
-      alert('Пожалуйста, выберите сотрудника из списка.');
+  const handleSubmitClick = () => {
+    // Валидация перед открытием модала
+    const validationError = validateForm();
+    if (validationError) {
+      showError(validationError, 5000);
+      return;
+    }
+    
+    setIsModalOpen(true);
+  };
+
+  const handleConfirm = async () => {
+    // Повторная валидация
+    const validationError = validateForm();
+    if (validationError) {
+      showError(validationError, 5000);
       setIsModalOpen(false);
       return;
     }
 
-    const details = view === 'siz' ? sizForm : items;
+    setIsSubmitting(true);
 
-    addRequest({
-      type: view,
-      user: selectedEmployee, // Используем выбранного из базы сотрудника
-      details: details,
-    });
+    try {
+      const details = view === 'siz' ? sizForm : items.filter(item => item.name && item.name.trim());
 
-    setIsModalOpen(false);
-    setView('menu');
-    
-    // Сброс форм
+      await addRequest({
+        type: view,
+        user: selectedEmployee,
+        details: details,
+      });
+
+      // ✅ Успешная отправка
+      success('Заявка успешно отправлена!', 5000);
+      
+      // Сброс форм ТОЛЬКО после успешной отправки
+      resetForm();
+      
+      // Закрыть модал и вернуться в меню
+      setIsModalOpen(false);
+      setView('menu');
+      
+    } catch (err: any) {
+      // ❌ Обработка ошибки
+      console.error('Ошибка отправки заявки:', err);
+      const errorMessage = err?.response?.data?.error || err?.message || 'Не удалось отправить заявку. Попробуйте еще раз.';
+      showError(errorMessage, 7000);
+      
+      // Форма НЕ сбрасывается при ошибке
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const resetForm = () => {
     setItems([{ id: Date.now(), name: '', qty: 1 }]);
     setSelectedEmployee('');
     setSizForm({ 
@@ -145,7 +212,11 @@ export const ProcurementWidget = () => {
     <div className="max-w-lg mx-auto pb-10">
       <div className="flex items-center gap-4 mb-6 px-2">
         <button
-          onClick={() => setView('menu')}
+          onClick={() => {
+            // Сброс формы при выходе
+            resetForm();
+            setView('menu');
+          }}
           className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors shadow-sm"
         >
           <ChevronLeft size={20} />
@@ -159,7 +230,7 @@ export const ProcurementWidget = () => {
         
         {/* --- ВЫБОР СОТРУДНИКА (АВТОКОМПЛИТ) --- */}
         <div className="mb-6">
-           <Autocomplete
+          <Autocomplete
             label="ФИО Сотрудника"
             value={selectedEmployee}
             onChange={setSelectedEmployee}
@@ -173,8 +244,6 @@ export const ProcurementWidget = () => {
 
         {view === 'siz' ? (
           <div className="space-y-5">
-            {/* Старый Input для имени удален, теперь используется PremiumSelect выше */}
-            
             <div className="grid grid-cols-2 gap-4">
               <PremiumSelect
                 label="Сезон одежды"
@@ -294,19 +363,32 @@ export const ProcurementWidget = () => {
         <div className="pt-8 mt-4 border-t border-white/5">
           <Button 
             className="w-full h-14 text-lg bg-indigo-600 hover:bg-indigo-500 shadow-xl shadow-indigo-500/20" 
-            onClick={() => setIsModalOpen(true)}
+            onClick={handleSubmitClick}
+            disabled={isSubmitting}
           >
-            Отправить заявку
+            {isSubmitting ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="animate-spin" size={20} />
+                Отправка...
+              </span>
+            ) : (
+              'Отправить заявку'
+            )}
           </Button>
         </div>
       </Card>
 
+      {/* ✅ ИСПРАВЛЕННЫЙ MODAL с onConfirm */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => !isSubmitting && setIsModalOpen(false)}
         onConfirm={handleConfirm}
-        title="Отправка заявки"
+        title="Подтверждение отправки"
         description={`Заявка будет оформлена на сотрудника: ${selectedEmployee}`}
+        confirmText="Отправить"
+        cancelText="Отмена"
+        isLoading={isSubmitting}
+        variant="default"
       />
     </div>
   );
