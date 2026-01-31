@@ -5,15 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:server": "tsx watch server.ts",
-    "dev:all": "concurrently \"npm run dev:server\" \"npm run dev\"",
-    "prisma:generate": "prisma generate",
-    "prisma:push": "prisma db push",
-    "build": "npm run prisma:generate && npm run build:server && npm run build:client",
-    "build:client": "vite build",
-    "build:server": "tsup server.ts --format esm --out-dir dist --clean --no-splitting",
-    "start": "node dist/server.js",
-    "lint": "eslint ."
+  "dev:server": "tsx watch server.ts",
+  "dev:all": "concurrently \"npm run dev:server\" \"npm run dev\"",
+
+  "prisma:generate": "prisma generate",
+  "prisma:push": "prisma db push",
+
+  "build": "npm run prisma:generate && npm run build:client && npm run build:server",
+  "build:client": "vite build",
+  "build:server": "tsup server.ts --format esm --out-dir dist --clean --no-splitting",
+
+  "start": "node dist/server.js",
+  "lint": "eslint ."
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

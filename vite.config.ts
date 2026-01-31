@@ -10,6 +10,10 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    // ГЛАВНОЕ: запрещаем Vite очищать папку dist, чтобы не удалить сервер от tsup
+    emptyOutDir: false,
+  },
   server: {
     proxy: {
       // Все запросы, начинающиеся с /api, будут перенаправлены на бэкенд (порт 5000)
