@@ -4,14 +4,12 @@ import { PrismaClient } from '@prisma/client';
 const router: Router = Router();
 const prisma = new PrismaClient();
 
-// Функция для генерации уникального номера заявки
 function generateRequestNumber(): string {
   const timestamp = Date.now();
   const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
   return `REQ-${timestamp}-${random}`;
 }
 
-// Маппинг типов для читаемости
 const TYPE_LABELS: Record<string, string> = {
   'siz': 'СИЗ',
   'tools': 'Инструменты',
@@ -26,7 +24,6 @@ function mapStatus(status: string): 'Новая' | 'В работе' | 'Заве
   return 'Новая';
 }
 
-// Маппинг статусов Фронтенд → БД
 function mapStatusToDB(status: string): string {
   if (status === 'Завершена') return 'completed';
   if (status === 'В работе') return 'in_progress';
@@ -41,26 +38,37 @@ router.get('/', async (req, res) => {
       include: { employee: true }
     });
     
-    const formatted = requests.map(req => ({
-      id: String(req.id),
-      type: req.requestType || 'equipment',
-      user: req.employee ? req.employee.name : (req.employeeName || 'Неизвестно'),
-      date: req.createdAt.toISOString(),
-      status: mapStatus(req.status),
-      details: req.detailsJson || {
-        itemName: req.itemName,
-        quantity: req.quantity,
-        unit: req.unit,
-        purpose: req.purpose,
-        notes: req.notes
-      },
-      createdAt: req.createdAt.toISOString(),
-      requestNumber: req.requestNumber
-    }));
+    const formatted = requests.map(req => {
+      // ✅ КРИТИЧНО: Правильное определение типа
+      let requestType = req.requestType || 'equipment';
+      let details = req.detailsJson;
+      
+      // Если detailsJson null, пытаемся восстановить из других полей
+      if (!details) {
+        details = {
+          itemName: req.itemName,
+          quantity: req.quantity,
+          unit: req.unit,
+          purpose: req.purpose,
+          notes: req.notes
+        };
+      }
+      
+      return {
+        id: String(req.id),
+        type: requestType, // ✅ Используем requestType из БД
+        user: req.employee ? req.employee.name : (req.employeeName || 'Неизвестно'),
+        date: req.createdAt.toISOString(),
+        status: mapStatus(req.status),
+        details: details,
+        createdAt: req.createdAt.toISOString(),
+        requestNumber: req.requestNumber
+      };
+    });
     
     res.json(formatted);
   } catch (error) {
-    console.error('Error fetching requests:', error);
+    console.error('❌ Ошибка получения заявок:', error);
     res.status(500).json({ error: 'Ошибка при получении заявок' });
   }
 });
@@ -70,24 +78,19 @@ router.post('/', async (req, res) => {
   try {
     const { type, user, details } = req.body;
     
-    console.log('📝 Получена заявка:', { type, user, details });
+    console.log('📝 Создание заявки:', { type, user, details });
     
-    // Ищем сотрудника по имени
+    // Поиск сотрудника
     let employeeId = null;
     let employeeName = user;
     
     if (user && user.trim()) {
       const employee = await prisma.employee.findFirst({
-        where: {
-          name: { contains: user.trim(), mode: 'insensitive' }
-        }
+        where: { name: { contains: user.trim(), mode: 'insensitive' } }
       });
-      
       if (employee) {
         employeeId = employee.id;
-        console.log(`✅ Найден сотрудник: ${employee.name} (ID: ${employee.id})`);
-      } else {
-        console.log(`⚠️ Сотрудник "${user}" не найден, сохраняем как текст`);
+        console.log(`✅ Сотрудник найден: ${employee.name}`);
       }
     }
     
@@ -95,11 +98,12 @@ router.post('/', async (req, res) => {
     
     // ===== ОБРАБОТКА СИЗ =====
     if (type === 'siz') {
+      // ✅ КРИТИЧНО: Сохраняем detailsJson как объект, НЕ как строку
       const requestData = {
         requestNumber,
         employeeId,
         employeeName,
-        requestType: 'siz',
+        requestType: 'siz', // ✅ КРИТИЧНО
         itemName: 'СИЗ (Средства индивидуальной защиты)',
         quantity: 1,
         unit: 'комплект',
@@ -107,7 +111,7 @@ router.post('/', async (req, res) => {
         purpose: 'СИЗ',
         notes: `Заявка на СИЗ для ${user}`,
         status: 'pending',
-        detailsJson: details // ✅ Сохраняем полные детали СИЗ
+        detailsJson: details // ✅ Prisma автоматически сериализует в JSONB
       };
       
       const newRequest = await prisma.request.create({
@@ -115,16 +119,17 @@ router.post('/', async (req, res) => {
         include: { employee: true }
       });
       
-      console.log(`✅ Создана заявка СИЗ: ${newRequest.requestNumber}`);
-      console.log(`✅ Сохраненные детали:`, newRequest.detailsJson);
+      console.log(`✅ СИЗ заявка создана: ${newRequest.requestNumber}`);
+      console.log(`✅ Тип сохранен: ${newRequest.requestType}`);
+      console.log(`✅ Детали:`, newRequest.detailsJson);
       
       const formatted = {
         id: String(newRequest.id),
-        type: 'siz',
+        type: 'siz', // ✅ КРИТИЧНО
         user: newRequest.employee ? newRequest.employee.name : newRequest.employeeName,
         date: newRequest.createdAt.toISOString(),
         status: 'Новая',
-        details: newRequest.detailsJson,
+        details: newRequest.detailsJson, // ✅ Уже объект
         createdAt: newRequest.createdAt.toISOString(),
         requestNumber: newRequest.requestNumber
       };
@@ -132,7 +137,7 @@ router.post('/', async (req, res) => {
       return res.json(formatted);
     }
     
-    // ===== ОБРАБОТКА ИНСТРУМЕНТОВ/ОБОРУДОВАНИЯ/РАСХОДНИКОВ =====
+    // ===== ИНСТРУМЕНТЫ/ОБОРУДОВАНИЕ/РАСХОДНИКИ =====
     const items = Array.isArray(details) ? details : [details];
     const createdRequests = [];
     
@@ -142,7 +147,7 @@ router.post('/', async (req, res) => {
           requestNumber: `${requestNumber}-${createdRequests.length + 1}`,
           employeeId,
           employeeName,
-          requestType: type,
+          requestType: type, // ✅ КРИТИЧНО: Сохраняем правильный тип
           itemName: item.name.trim(),
           quantity: item.qty || 1,
           unit: 'шт',
@@ -150,7 +155,7 @@ router.post('/', async (req, res) => {
           purpose: TYPE_LABELS[type] || type,
           notes: `Тип заявки: ${TYPE_LABELS[type] || type}`,
           status: 'pending',
-          detailsJson: item // Сохраняем детали позиции
+          detailsJson: item
         };
         
         const newRequest = await prisma.request.create({
@@ -159,7 +164,7 @@ router.post('/', async (req, res) => {
         });
         
         createdRequests.push(newRequest);
-        console.log(`✅ Создана заявка: ${newRequest.requestNumber} - ${newRequest.itemName}`);
+        console.log(`✅ Создана заявка ${newRequest.requestType}: ${newRequest.itemName}`);
       }
     }
     
@@ -169,6 +174,7 @@ router.post('/', async (req, res) => {
         count: createdRequests.length,
         requests: createdRequests.map(r => ({
           id: String(r.id),
+          type: r.requestType, // ✅ Возвращаем правильный тип
           requestNumber: r.requestNumber,
           itemName: r.itemName
         }))
@@ -216,20 +222,19 @@ router.patch('/:id', async (req, res) => {
     
     res.json(formatted);
   } catch (error) {
-    console.error('Error updating request:', error);
+    console.error('❌ Ошибка обновления:', error);
     res.status(500).json({ error: 'Ошибка обновления' });
   }
 });
 
-// ===== ОБНОВИТЬ ЗАЯВКУ ПОЛНОСТЬЮ (НОВЫЙ ENDPOINT) =====
+// ===== ПОЛНОЕ ОБНОВЛЕНИЕ =====
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { user, type, details, status } = req.body;
     
-    console.log('📝 Обновление заявки:', { id, user, type, details, status });
+    console.log('📝 Полное обновление заявки:', { id, user, type });
     
-    // Ищем сотрудника если имя изменилось
     let employeeId = null;
     let employeeName = user;
     
@@ -242,17 +247,15 @@ router.put('/:id', async (req, res) => {
     
     const dbStatus = status ? mapStatusToDB(status) : undefined;
     
-    // Формируем данные для обновления
     const updateData: any = {
       employeeId,
       employeeName,
-      requestType: type,
+      requestType: type, // ✅ КРИТИЧНО: Обновляем тип
       detailsJson: details
     };
     
     if (dbStatus) updateData.status = dbStatus;
     
-    // Для СИЗ обновляем itemName
     if (type === 'siz') {
       updateData.itemName = 'СИЗ (Средства индивидуальной защиты)';
       updateData.quantity = 1;
@@ -280,25 +283,23 @@ router.put('/:id', async (req, res) => {
     res.json(formatted);
     
   } catch (error: any) {
-    console.error('❌ Ошибка обновления заявки:', error);
+    console.error('❌ Ошибка обновления:', error);
     res.status(500).json({ 
-      error: 'Ошибка при обновлении заявки',
+      error: 'Ошибка при обновлении',
       details: error.message
     });
   }
 });
 
-// ===== УДАЛИТЬ ЗАЯВКУ =====
+// ===== УДАЛИТЬ =====
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    await prisma.request.delete({
-      where: { id: Number(id) }
-    });
+    await prisma.request.delete({ where: { id: Number(id) } });
     console.log(`🗑️ Заявка ${id} удалена`);
     res.sendStatus(204);
   } catch (error) {
-    console.error('Error deleting request:', error);
+    console.error('❌ Ошибка удаления:', error);
     res.status(500).json({ error: 'Ошибка удаления' });
   }
 });

@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { RequestEntry } from '@/entities/request/model/store';
 import { formatDate } from './dateFormatter';
 
-// Импорты для PDF - ленивая загрузка
+// Ленивая загрузка PDF
 let pdfMake: any = null;
 let pdfFonts: any = null;
 
@@ -10,7 +10,6 @@ const initializePdfMake = async () => {
   if (!pdfMake) {
     const pdfMakeModule = await import('pdfmake/build/pdfmake');
     const pdfFontsModule = await import('pdfmake/build/vfs_fonts');
-    
     pdfMake = pdfMakeModule.default;
     pdfFonts = pdfFontsModule.default;
     pdfMake.vfs = pdfFonts.pdfMake.vfs;
@@ -31,62 +30,84 @@ const STATUS_LABELS: Record<string, string> = {
   'Завершена': 'Завершена'
 };
 
-// Форматирование деталей
+// ✅ КРИТИЧНАЯ ФУНКЦИЯ: Безопасный парсинг данных
+function safeParseDetails(details: any): any {
+  // Если это строка - парсим JSON
+  if (typeof details === 'string') {
+    try {
+      return JSON.parse(details);
+    } catch (e) {
+      console.warn('Не удалось распарсить JSON:', details);
+      return {};
+    }
+  }
+  // Если уже объект - возвращаем как есть
+  return details || {};
+}
+
+// ✅ КРИТИЧНАЯ ФУНКЦИЯ: Форматирование деталей для отображения
 const formatDetails = (req: RequestEntry): string => {
-  if (req.type === 'siz' && req.details) {
-    const d = req.details as any;
+  const details = safeParseDetails(req.details);
+  
+  // СИЗ - форматируем в читаемый вид
+  if (req.type === 'siz' && details) {
     const parts: string[] = [];
     
-    if (d.height) parts.push(`Рост: ${d.height}`);
-    if (d.clothingSize) parts.push(`Размер одежды: ${d.clothingSize}`);
-    if (d.clothingSeason) parts.push(`Сезон одежды: ${d.clothingSeason}`);
-    if (d.shoeSize) parts.push(`Размер обуви: ${d.shoeSize}`);
-    if (d.shoeSeason) parts.push(`Сезон обуви: ${d.shoeSeason}`);
+    if (details.height) parts.push(`Рост: ${details.height} см`);
+    if (details.clothingSize) parts.push(`Размер одежды: ${details.clothingSize}`);
+    if (details.clothingSeason) parts.push(`Сезон одежды: ${details.clothingSeason}`);
+    if (details.shoeSize) parts.push(`Размер обуви: ${details.shoeSize}`);
+    if (details.shoeSeason) parts.push(`Сезон обуви: ${details.shoeSeason}`);
     
-    return parts.join(', ');
+    return parts.length > 0 ? parts.join(', ') : 'Нет данных';
   }
   
-  if (Array.isArray(req.details)) {
-    return req.details.map((item: any) => `${item.name} × ${item.qty} шт.`).join(', ');
+  // Массив позиций (инструменты/оборудование)
+  if (Array.isArray(details)) {
+    return details
+      .map((item: any) => `${item.name} × ${item.qty} шт.`)
+      .join(', ');
   }
   
-  if (typeof req.details === 'object' && req.details !== null) {
-    const d = req.details as any;
+  // Объект с полями
+  if (typeof details === 'object') {
     const parts: string[] = [];
     
-    if (d.itemName) parts.push(d.itemName);
-    if (d.quantity) parts.push(`Кол-во: ${d.quantity} ${d.unit || 'шт.'}`);
-    if (d.purpose) parts.push(`Назначение: ${d.purpose}`);
-    if (d.notes) parts.push(`Примечание: ${d.notes}`);
+    if (details.itemName) parts.push(details.itemName);
+    if (details.quantity) parts.push(`Кол-во: ${details.quantity} ${details.unit || 'шт.'}`);
+    if (details.purpose) parts.push(`Назначение: ${details.purpose}`);
+    if (details.notes) parts.push(`Примечание: ${details.notes}`);
     
-    return parts.join(', ');
+    return parts.length > 0 ? parts.join(', ') : 'Нет данных';
   }
   
   return 'Нет данных';
 };
 
-// Извлечение размеров СИЗ
+// ✅ КРИТИЧНАЯ ФУНКЦИЯ: Извлечение размеров СИЗ для Excel
 const extractSizDetails = (req: RequestEntry) => {
-  if (req.type === 'siz' && req.details) {
-    const d = req.details as any;
+  if (req.type !== 'siz') {
     return {
-      height: d.height || '-',
-      clothingSize: d.clothingSize || '-',
-      clothingSeason: d.clothingSeason || '-',
-      shoeSize: d.shoeSize || '-',
-      shoeSeason: d.shoeSeason || '-'
+      height: '-',
+      clothingSize: '-',
+      clothingSeason: '-',
+      shoeSize: '-',
+      shoeSeason: '-'
     };
   }
+  
+  const details = safeParseDetails(req.details);
+  
   return {
-    height: '-',
-    clothingSize: '-',
-    clothingSeason: '-',
-    shoeSize: '-',
-    shoeSeason: '-'
+    height: details.height || '-',
+    clothingSize: details.clothingSize || '-',
+    clothingSeason: details.clothingSeason || '-',
+    shoeSize: details.shoeSize || '-',
+    shoeSeason: details.shoeSeason || '-'
   };
 };
 
-// ✅ УНИКАЛЬНОЕ ИМЯ ФАЙЛА
+// Генерация уникального имени файла
 function generateUniqueFilename(prefix: string, extension: string): string {
   const now = new Date();
   const day = now.getDate();
@@ -99,12 +120,14 @@ function generateUniqueFilename(prefix: string, extension: string): string {
   return `${prefix}_${day}_${month}_${year}_${hours}_${minutes}_${seconds}.${extension}`;
 }
 
-// ЭКСПОРТ В EXCEL
+// ===== ЭКСПОРТ В EXCEL =====
 export const exportToExcel = (requests: RequestEntry[]) => {
   if (!requests || requests.length === 0) {
     alert('Нет данных для экспорта');
     return;
   }
+
+  console.log('📊 Экспорт в Excel, заявок:', requests.length);
 
   const sortedData = [...requests].sort((a, b) => {
     const dateA = new Date(a.createdAt || a.date).getTime();
@@ -115,10 +138,15 @@ export const exportToExcel = (requests: RequestEntry[]) => {
   const excelData = sortedData.map((req, index) => {
     const sizDetails = extractSizDetails(req);
     
+    // ✅ КРИТИЧНО: Правильное определение типа
+    const typeLabel = TYPE_LABELS[req.type] || req.type;
+    
+    console.log(`Заявка ${index + 1}: Тип=${req.type}, Label=${typeLabel}`);
+    
     return {
       '№': index + 1,
       'Сотрудник': req.user,
-      'Тип заявки': TYPE_LABELS[req.type] || req.type,
+      'Тип заявки': typeLabel, // ✅ Используем правильный маппинг
       'Статус': STATUS_LABELS[req.status || 'Новая'] || req.status || 'Новая',
       'Дата создания': formatDate(req.createdAt || req.date),
       'Подробности': formatDetails(req),
@@ -139,6 +167,7 @@ export const exportToExcel = (requests: RequestEntry[]) => {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Заявки');
 
+  // ✅ КРИТИЧНО: Статистика по правильным типам
   const stats = [
     ['Показатель', 'Значение'],
     ['Всего заявок', requests.length],
@@ -155,21 +184,30 @@ export const exportToExcel = (requests: RequestEntry[]) => {
     ['Расходники', requests.filter(r => r.type === 'consumables').length]
   ];
 
+  console.log('📊 Статистика по типам:', {
+    siz: requests.filter(r => r.type === 'siz').length,
+    tools: requests.filter(r => r.type === 'tools').length,
+    equipment: requests.filter(r => r.type === 'equipment').length,
+    consumables: requests.filter(r => r.type === 'consumables').length
+  });
+
   const wsStats = XLSX.utils.aoa_to_sheet(stats);
   wsStats['!cols'] = [{ wch: 30 }, { wch: 15 }];
   XLSX.utils.book_append_sheet(wb, wsStats, 'Статистика');
 
-  // ✅ УНИКАЛЬНОЕ ИМЯ
   const filename = generateUniqueFilename('BAUFLEX_Заявки', 'xlsx');
+  console.log('✅ Excel файл сгенерирован:', filename);
   XLSX.writeFile(wb, filename);
 };
 
-// ЭКСПОРТ В PDF
+// ===== ЭКСПОРТ В PDF =====
 export const exportToPDF = async (requests: RequestEntry[]) => {
   if (!requests || requests.length === 0) {
     alert('Нет данных для экспорта');
     return;
   }
+
+  console.log('📄 Экспорт в PDF, заявок:', requests.length);
 
   const pdf = await initializePdfMake();
 
@@ -231,12 +269,17 @@ export const exportToPDF = async (requests: RequestEntry[]) => {
         req.status === 'В работе' ? '#fef3c7' : 
         '#d1fae5';
 
+      // ✅ КРИТИЧНО: Правильный тип заявки
+      const typeLabel = TYPE_LABELS[req.type] || req.type;
+      
+      console.log(`PDF заявка ${idx + 1}: Тип=${req.type}, Label=${typeLabel}`);
+
       tableBody.push([
         { text: (idx + 1).toString(), style: 'tableCell' },
-        { text: TYPE_LABELS[req.type] || req.type, style: 'tableCell' },
+        { text: typeLabel, style: 'tableCell' }, // ✅ Правильный маппинг
         { text: req.status || 'Новая', style: 'tableCell', fillColor: statusColor },
         { text: formatDate(req.createdAt || req.date), style: 'tableCell' },
-        { text: formatDetails(req), style: 'tableCellDetails' }
+        { text: formatDetails(req), style: 'tableCellDetails' } // ✅ Читаемый формат
       ]);
     });
 
@@ -263,6 +306,7 @@ export const exportToPDF = async (requests: RequestEntry[]) => {
     margin: [0, 20, 0, 20]
   });
 
+  // ✅ КРИТИЧНО: Статистика по правильным типам
   const statsBody: any[] = [
     [
       { text: 'Показатель', style: 'tableHeader', fillColor: '#dc2626' }, 
@@ -317,8 +361,8 @@ export const exportToPDF = async (requests: RequestEntry[]) => {
     }
   };
 
-  // ✅ УНИКАЛЬНОЕ ИМЯ
   const filename = generateUniqueFilename('BAUFLEX_Отчет', 'pdf');
+  console.log('✅ PDF файл сгенерирован:', filename);
   pdf.createPdf(docDefinition).download(filename);
 };
 
