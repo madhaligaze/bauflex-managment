@@ -42,5 +42,5 @@ ENV PORT=5000
 # Открываем порт
 EXPOSE 5000
 
-# Запускаем приложение
-CMD ["node", "dist/server.js"]
+# ВАЖНО: Сначала применяем схему к базе, потом запускаем сервер
+CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/server.js"]

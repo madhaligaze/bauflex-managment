@@ -1,9 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider      = "prisma-client-js"
-  // Добавлены binaryTargets для совместимости с разными платформами
   binaryTargets = ["native", "debian-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
 }
 
@@ -18,8 +14,10 @@ model User {
   password  String
   name      String
   role      Role     @default(USER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("User")
 }
 
 model Employee {
@@ -29,25 +27,29 @@ model Employee {
   email      String?
   phone      String?
   department String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
   Request    Request[]
+
+  @@map("Employee")
 }
 
 model Request {
   id              Int       @id @default(autoincrement())
-  requestNumber   String    @unique
+  requestNumber   String    @unique @map("request_number")
   employee        Employee  @relation(fields: [employeeId], references: [id])
-  employeeId      Int
-  itemName        String
+  employeeId      Int       @map("employee_id")
+  itemName        String    @map("item_name")
   quantity        Int
   unit            String
   urgency         String
   purpose         String?
   notes           String?
   status          String    @default("pending")
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("Request")
 }
 
 enum Role {
