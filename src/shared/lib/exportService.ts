@@ -2,21 +2,23 @@ import * as XLSX from 'xlsx';
 import { RequestEntry } from '@/entities/request/model/store';
 import { formatDate } from './dateFormatter';
 
-// Импорты для PDF с правильной типизацией
-import pdfMake from 'pdfmake/build/pdfmake';
-import pdfFonts from 'pdfmake/build/vfs_fonts';
+// Импорты для PDF - будут использоваться только при вызове функции
+let pdfMake: any = null;
+let pdfFonts: any = null;
 
-// Настройка шрифтов для поддержки кириллицы
-(pdfMake as any).vfs = pdfFonts.pdfMake.vfs;
-
-// Добавляем поддержку кириллических шрифтов
-(pdfMake as any).fonts = {
-  Roboto: {
-    normal: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Regular.ttf',
-    bold: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Medium.ttf',
-    italics: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Italic.ttf',
-    bolditalics: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-MediumItalic.ttf'
+// Ленивая инициализация pdfMake только при первом вызове
+const initializePdfMake = async () => {
+  if (!pdfMake) {
+    const pdfMakeModule = await import('pdfmake/build/pdfmake');
+    const pdfFontsModule = await import('pdfmake/build/vfs_fonts');
+    
+    pdfMake = pdfMakeModule.default;
+    pdfFonts = pdfFontsModule.default;
+    
+    // Настройка виртуальной файловой системы для шрифтов
+    pdfMake.vfs = pdfFonts.pdfMake.vfs;
   }
+  return pdfMake;
 };
 
 // Маппинг типов заявок
@@ -186,11 +188,14 @@ export const exportToExcel = (requests: RequestEntry[]) => {
 // ЭКСПОРТ В PDF
 // ============================================
 
-export const exportToPDF = (requests: RequestEntry[]) => {
+export const exportToPDF = async (requests: RequestEntry[]) => {
   if (!requests || requests.length === 0) {
     alert('Нет данных для экспорта');
     return;
   }
+
+  // Инициализируем pdfMake
+  const pdf = await initializePdfMake();
 
   // Сортируем данные
   const sortedData = [...requests].sort((a, b) => {
@@ -363,9 +368,6 @@ export const exportToPDF = (requests: RequestEntry[]) => {
         alignment: 'left'
       }
     },
-    defaultStyle: {
-      font: 'Roboto'
-    },
     footer: function(currentPage: number, pageCount: number) {
       return {
         text: `Страница ${currentPage} из ${pageCount}`,
@@ -381,7 +383,7 @@ export const exportToPDF = (requests: RequestEntry[]) => {
   const today = new Date();
   const filename = `BAUFLEX_Отчет_${today.getDate()}_${String(today.getMonth() + 1).padStart(2, '0')}_${today.getFullYear()}.pdf`;
   
-  pdfMake.createPdf(docDefinition).download(filename);
+  pdf.createPdf(docDefinition).download(filename);
 };
 
 // Экспортируем также старую функцию для обратной совместимости
