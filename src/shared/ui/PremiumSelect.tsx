@@ -3,18 +3,17 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 
-// ✅ Добавлен интерфейс для опций в виде объектов
 interface SelectOption {
   value: string;
   label: string;
 }
 
 interface SelectProps {
-  label?: string; // ✅ Теперь опциональный
+  label?: string;
   value: string;
-  options: string[] | SelectOption[]; // ✅ Поддержка обоих форматов
+  options: string[] | SelectOption[];
   onChange: (val: string) => void;
-  placeholder?: string; // ✅ Новый prop
+  placeholder?: string;
 }
 
 export const PremiumSelect = ({ 
@@ -27,12 +26,10 @@ export const PremiumSelect = ({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // ✅ Нормализация опций - поддержка строк и объектов
   const normalizedOptions = options.map(opt => 
     typeof opt === 'string' ? { value: opt, label: opt } : opt
   );
 
-  // Закрытие по клику вне области
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -43,15 +40,13 @@ export const PremiumSelect = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // ✅ Найти текущую label для отображения
   const currentOption = normalizedOptions.find(opt => opt.value === value);
   const displayValue = currentOption ? currentOption.label : value;
 
   return (
     <div className="flex flex-col gap-2 w-full relative" ref={containerRef}>
-      {/* ✅ Label теперь опциональный */}
       {label && (
-        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">
+        <span className="text-[11px] font-bold text-white/60 uppercase tracking-widest ml-1">
           {label}
         </span>
       )}
@@ -60,70 +55,91 @@ export const PremiumSelect = ({
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "h-14 w-full flex items-center justify-between px-5 rounded-2xl bg-slate-50 border border-slate-100 transition-all",
-          "hover:bg-white hover:border-indigo-200 active:scale-[0.99]",
-          isOpen && "bg-white border-indigo-500 ring-4 ring-indigo-500/5 shadow-sm"
+          "h-14 w-full flex items-center justify-between px-5 rounded-2xl transition-all backdrop-blur-xl group",
+          "bg-white/5 border border-white/10",
+          "hover:bg-white/10 hover:border-white/20 active:scale-[0.99]",
+          isOpen && "bg-white/10 border-red-500/50 ring-4 ring-red-500/10 shadow-lg shadow-red-500/5"
         )}
       >
-        <span className={cn("text-base truncate mr-2", !value ? "text-slate-400" : "text-slate-900 font-medium")}>
+        <span className={cn(
+          "text-base truncate mr-2 transition-colors",
+          !value ? "text-white/40" : "text-white font-medium"
+        )}>
           {displayValue || placeholder}
         </span>
-        <ChevronDown className={cn("w-5 h-5 text-slate-400 transition-transform duration-300 flex-shrink-0", isOpen && "rotate-180")} />
+        <ChevronDown className={cn(
+          "w-5 h-5 text-white/40 transition-all duration-300 flex-shrink-0 group-hover:text-white/60",
+          isOpen && "rotate-180 text-red-400"
+        )} />
       </button>
 
       <AnimatePresence>
         {isOpen && (
           <>
-            {/* Backdrop */}
+            {/* Backdrop with blur */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsOpen(false)}
-              className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-[60] md:bg-transparent md:backdrop-blur-none"
+              className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[60] md:bg-transparent md:backdrop-blur-none"
             />
             
-            {/* Dropdown Content */}
+            {/* Dropdown Content - DARK GLASSMORPHISM */}
             <motion.div
-              initial={{ y: "100%", opacity: 1 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: "100%", opacity: 1 }}
-              transition={{ type: "spring", damping: 30, stiffness: 300, mass: 0.8 }}
+              initial={{ y: "100%", opacity: 0, scale: 0.95 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: "100%", opacity: 0, scale: 0.95 }}
+              transition={{ type: "spring", damping: 28, stiffness: 300, mass: 0.8 }}
               className={cn(
-                "fixed bottom-0 left-0 right-0 z-[70] bg-white rounded-t-[32px] shadow-[0_-8px_40px_rgba(0,0,0,0.12)] max-h-[80vh] overflow-hidden flex flex-col",
-                "md:absolute md:bottom-auto md:top-[calc(100%+8px)] md:left-0 md:right-0 md:rounded-2xl md:shadow-premium md:max-h-60 md:origin-top"
+                "fixed bottom-0 left-0 right-0 z-[70] max-h-[80vh] overflow-hidden flex flex-col",
+                "md:absolute md:bottom-auto md:top-[calc(100%+8px)] md:left-0 md:right-0 md:max-h-72",
+                // Dark glassmorphism background
+                "bg-gradient-to-b from-slate-900/95 to-slate-950/98 backdrop-blur-2xl",
+                "border border-white/10 shadow-2xl",
+                "rounded-t-[32px] md:rounded-2xl",
+                // Subtle gradient overlay
+                "before:absolute before:inset-0 before:bg-gradient-to-b before:from-red-500/5 before:to-transparent before:pointer-events-none before:rounded-t-[32px] md:before:rounded-2xl"
               )}
-              style={{
-                transformOrigin: typeof window !== 'undefined' && window.innerWidth > 768 ? 'top' : 'bottom'
-              }}
             >
               {/* Mobile Drag Handle */}
-              <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto my-4 flex-shrink-0 md:hidden" />
+              <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto my-4 flex-shrink-0 md:hidden" />
               
-              <div className="flex-1 overflow-y-auto px-4 pb-8 md:p-2 md:pb-2">
+              {/* Scrollable Options */}
+              <div className="flex-1 overflow-y-auto px-4 pb-8 md:p-2 md:pb-2 custom-scrollbar">
                 <div className="flex flex-col gap-1">
-                  {/* ✅ Используем нормализованные опции */}
-                  {normalizedOptions.map((opt) => (
-                    <button
+                  {normalizedOptions.map((opt, index) => (
+                    <motion.button
                       key={opt.value}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.03 }}
                       onClick={() => {
                         onChange(opt.value);
                         setIsOpen(false);
                       }}
                       className={cn(
-                        "flex items-center justify-between px-6 py-4 md:px-4 md:py-3 rounded-xl text-left transition-all duration-200",
+                        "flex items-center justify-between px-6 py-4 md:px-4 md:py-3 rounded-xl text-left transition-all duration-200 group/option relative overflow-hidden",
                         value === opt.value 
-                          ? "bg-indigo-50 text-indigo-700 font-bold" 
-                          : "hover:bg-slate-50 text-slate-700 active:bg-slate-100"
+                          ? "bg-red-500/20 text-red-300 font-bold border border-red-500/30" 
+                          : "hover:bg-white/5 text-white/80 active:bg-white/10 border border-transparent hover:border-white/10"
                       )}
                     >
-                      <span className="text-base md:text-sm">{opt.label}</span>
+                      {/* Hover gradient effect */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-red-500/0 via-red-500/5 to-red-500/0 opacity-0 group-hover/option:opacity-100 transition-opacity" />
+                      
+                      <span className="text-base md:text-sm relative z-10">{opt.label}</span>
+                      
                       {value === opt.value && (
-                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                          <Check className="w-5 h-5 text-indigo-600" />
+                        <motion.div 
+                          initial={{ scale: 0, rotate: -180 }} 
+                          animate={{ scale: 1, rotate: 0 }}
+                          className="relative z-10"
+                        >
+                          <Check className="w-5 h-5 text-red-400" />
                         </motion.div>
                       )}
-                    </button>
+                    </motion.button>
                   ))}
                 </div>
               </div>

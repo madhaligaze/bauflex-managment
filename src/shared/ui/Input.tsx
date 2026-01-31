@@ -1,29 +1,52 @@
-// src/shared/ui/Input.tsx
-import React from 'react';
+import { InputHTMLAttributes, forwardRef } from 'react';
 import { cn } from '@/shared/lib/utils';
 
-export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { label?: string }>(
-  ({ className, label, ...props }, ref) => {
+interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+  label?: string;
+  error?: string;
+  helperText?: string;
+}
+
+export const Input = forwardRef<HTMLInputElement, InputProps>(
+  ({ label, error, helperText, className, ...props }, ref) => {
     return (
       <div className="flex flex-col gap-2 w-full">
         {label && (
-          <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest ml-1">
+          <label className="text-[11px] font-bold text-white/60 uppercase tracking-widest ml-1">
             {label}
-          </span>
+          </label>
         )}
+        
         <input
           ref={ref}
           className={cn(
-            "h-14 w-full rounded-2xl px-5 text-base transition-all duration-300",
-            "bg-white/5 border border-white/10 text-white placeholder:text-white/20",
-            // ИЗМЕНЕНИЕ: Вместо focus:bg-white делаем легкое высветление
-            "focus:bg-white/10 focus:border-red-500/50 focus:ring-4 focus:ring-red-500/10 focus:outline-none",
+            "h-14 px-5 rounded-2xl transition-all backdrop-blur-xl",
+            "bg-white/5 border text-white placeholder:text-white/40",
+            "focus:outline-none focus:ring-4",
+            error 
+              ? "border-red-500/50 focus:border-red-500 focus:ring-red-500/20" 
+              : "border-white/10 focus:border-red-500/50 focus:ring-red-500/10 hover:bg-white/10 hover:border-white/20",
+            "disabled:opacity-50 disabled:cursor-not-allowed",
             className
           )}
           {...props}
         />
+        
+        {error && (
+          <p className="text-xs text-red-400 ml-1 flex items-center gap-1">
+            <span className="w-1 h-1 rounded-full bg-red-400" />
+            {error}
+          </p>
+        )}
+        
+        {helperText && !error && (
+          <p className="text-xs text-white/40 ml-1">
+            {helperText}
+          </p>
+        )}
       </div>
     );
   }
 );
-Input.displayName = "Input";
+
+Input.displayName = 'Input';
