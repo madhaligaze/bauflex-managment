@@ -32,6 +32,7 @@
     "jspdf": "^2.5.2",
     "jspdf-autotable": "^3.8.3",
     "lucide-react": "^0.563.0",
+    "pdfmake": "^0.3.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.53.0",

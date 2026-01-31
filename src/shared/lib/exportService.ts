@@ -1,24 +1,25 @@
 import * as XLSX from 'xlsx';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { RequestEntry } from '@/entities/request/model/store';
-import { formatDate, formatDateOnly } from './dateFormatter';
+import { formatDate } from './dateFormatter';
 
-// Хелпер для превращения JSON в читаемый текст
-const formatDetails = (req: RequestEntry) => {
-  if (req.type === 'siz') {
-    const d = req.details;
-    return `Рост: ${d.height || '—'}, Одежда: ${d.clothingSize || '—'} (${d.clothingSeason || '—'}), Обувь: ${d.shoeSize || '—'} (${d.shoeSeason || '—'})`;
+// Импорты для PDF с правильной типизацией
+import pdfMake from 'pdfmake/build/pdfmake';
+import pdfFonts from 'pdfmake/build/vfs_fonts';
+
+// Настройка шрифтов для поддержки кириллицы
+(pdfMake as any).vfs = pdfFonts.pdfMake.vfs;
+
+// Добавляем поддержку кириллических шрифтов
+(pdfMake as any).fonts = {
+  Roboto: {
+    normal: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Regular.ttf',
+    bold: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Medium.ttf',
+    italics: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Italic.ttf',
+    bolditalics: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-MediumItalic.ttf'
   }
-  
-  if (Array.isArray(req.details)) {
-    return req.details.map((item: any) => `${item.name} × ${item.qty} шт.`).join(', ');
-  }
-  
-  return '—';
 };
 
-// Маппинг типов
+// Маппинг типов заявок
 const TYPE_LABELS: Record<string, string> = {
   siz: 'СИЗ',
   tools: 'Инструменты',
@@ -26,169 +27,170 @@ const TYPE_LABELS: Record<string, string> = {
   consumables: 'Расходники'
 };
 
-// --- ЭКСПОРТ В EXCEL (Улучшенная версия) ---
+// Маппинг статусов
+const STATUS_LABELS: Record<string, string> = {
+  'Новая': 'Новая',
+  'В работе': 'В работе',
+  'Завершена': 'Завершена'
+};
+
+// ============================================
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// ============================================
+
+// Форматирование деталей для отображения
+const formatDetails = (req: RequestEntry): string => {
+  if (req.type === 'siz' && req.details) {
+    const d = req.details as any;
+    const parts: string[] = [];
+    
+    if (d.height) parts.push(`Рост: ${d.height}`);
+    if (d.clothingSize) parts.push(`Размер одежды: ${d.clothingSize}`);
+    if (d.clothingSeason) parts.push(`Сезон одежды: ${d.clothingSeason}`);
+    if (d.shoeSize) parts.push(`Размер обуви: ${d.shoeSize}`);
+    if (d.shoeSeason) parts.push(`Сезон обуви: ${d.shoeSeason}`);
+    
+    return parts.join(', ');
+  }
+  
+  if (Array.isArray(req.details)) {
+    return req.details.map((item: any) => `${item.name} × ${item.qty} шт.`).join(', ');
+  }
+  
+  if (typeof req.details === 'object' && req.details !== null) {
+    const d = req.details as any;
+    const parts: string[] = [];
+    
+    if (d.itemName) parts.push(d.itemName);
+    if (d.quantity) parts.push(`Кол-во: ${d.quantity} ${d.unit || 'шт.'}`);
+    if (d.purpose) parts.push(`Назначение: ${d.purpose}`);
+    if (d.notes) parts.push(`Примечание: ${d.notes}`);
+    
+    return parts.join(', ');
+  }
+  
+  return 'Нет данных';
+};
+
+// Извлечение размеров для СИЗ
+const extractSizDetails = (req: RequestEntry) => {
+  if (req.type === 'siz' && req.details) {
+    const d = req.details as any;
+    return {
+      height: d.height || '-',
+      clothingSize: d.clothingSize || '-',
+      clothingSeason: d.clothingSeason || '-',
+      shoeSize: d.shoeSize || '-',
+      shoeSeason: d.shoeSeason || '-'
+    };
+  }
+  return {
+    height: '-',
+    clothingSize: '-',
+    clothingSeason: '-',
+    shoeSize: '-',
+    shoeSeason: '-'
+  };
+};
+
+// ============================================
+// ЭКСПОРТ В EXCEL
+// ============================================
+
 export const exportToExcel = (requests: RequestEntry[]) => {
   if (!requests || requests.length === 0) {
     alert('Нет данных для экспорта');
     return;
   }
 
-  // 1. Сортируем: сначала по дате (новые сверху), затем по сотруднику и типу
+  // Сортируем по дате (новые первые)
   const sortedData = [...requests].sort((a, b) => {
-    // Сначала по дате (новые первыми)
     const dateA = new Date(a.createdAt || a.date).getTime();
     const dateB = new Date(b.createdAt || b.date).getTime();
-    if (dateB !== dateA) return dateB - dateA;
-    
-    // Затем по сотруднику
-    const userCompare = a.user.localeCompare(b.user, 'ru');
-    if (userCompare !== 0) return userCompare;
-    
-    // Затем по типу
-    return a.type.localeCompare(b.type);
+    return dateB - dateA;
   });
 
-  // 2. Группируем по сотрудникам для второго листа
-  const byEmployee: Record<string, RequestEntry[]> = {};
-  sortedData.forEach(req => {
-    if (!byEmployee[req.user]) {
-      byEmployee[req.user] = [];
-    }
-    byEmployee[req.user].push(req);
+  // Формируем данные для Excel с учетом размеров СИЗ
+  const excelData = sortedData.map((req, index) => {
+    const sizDetails = extractSizDetails(req);
+    
+    return {
+      '№': index + 1,
+      'Сотрудник': req.user,
+      'Тип заявки': TYPE_LABELS[req.type] || req.type,
+      'Статус': STATUS_LABELS[req.status || 'Новая'] || req.status || 'Новая',
+      'Дата создания': formatDate(req.createdAt || req.date),
+      'Подробности': formatDetails(req),
+      // Добавляем колонки с размерами для СИЗ
+      'Рост': sizDetails.height,
+      'Размер одежды': sizDetails.clothingSize,
+      'Сезон одежды': sizDetails.clothingSeason,
+      'Размер обуви': sizDetails.shoeSize,
+      'Сезон обуви': sizDetails.shoeSeason
+    };
   });
 
-  // 3. Формируем данные для основного листа (Общий реестр)
-  const mainSheetData = sortedData.map((req, index) => ({
-    '№': index + 1,
-    'Сотрудник': req.user || '—',
-    'Тип заявки': TYPE_LABELS[req.type] || req.type,
-    'Статус': req.status || 'Новая',
-    'Дата создания': formatDate(req.createdAt || req.date),
-    'Детали заявки': formatDetails(req)
-  }));
+  // Создаем worksheet
+  const ws = XLSX.utils.json_to_sheet(excelData);
 
-  const mainWorksheet = XLSX.utils.json_to_sheet(mainSheetData);
+  // Настраиваем ширину колонок
+  const colWidths = [
+    { wch: 5 },  // №
+    { wch: 25 }, // Сотрудник
+    { wch: 15 }, // Тип заявки
+    { wch: 12 }, // Статус
+    { wch: 20 }, // Дата создания
+    { wch: 50 }, // Подробности
+    { wch: 10 }, // Рост
+    { wch: 15 }, // Размер одежды
+    { wch: 15 }, // Сезон одежды
+    { wch: 15 }, // Размер обуви
+    { wch: 15 }  // Сезон обуви
+  ];
+  ws['!cols'] = colWidths;
 
-  // Настройка ширины колонок
-  mainWorksheet['!cols'] = [
-    { wch: 5 },   // №
-    { wch: 30 },  // Сотрудник
-    { wch: 18 },  // Тип
-    { wch: 15 },  // Статус
-    { wch: 20 },  // Дата
-    { wch: 80 }   // Детали (широкая)
+  // Создаем workbook
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Заявки');
+
+  // Добавляем лист статистики
+  const stats = [
+    ['Показатель', 'Значение'],
+    ['Всего заявок', requests.length],
+    ['', ''],
+    ['По статусам:', ''],
+    ['Новые', requests.filter(r => r.status === 'Новая' || !r.status).length],
+    ['В работе', requests.filter(r => r.status === 'В работе').length],
+    ['Завершены', requests.filter(r => r.status === 'Завершена').length],
+    ['', ''],
+    ['По категориям:', ''],
+    ['СИЗ', requests.filter(r => r.type === 'siz').length],
+    ['Инструменты', requests.filter(r => r.type === 'tools').length],
+    ['Оборудование', requests.filter(r => r.type === 'equipment').length],
+    ['Расходники', requests.filter(r => r.type === 'consumables').length]
   ];
 
-  // 4. Лист "По сотрудникам" - группировка
-  const employeeSheetData: any[] = [];
-  Object.entries(byEmployee).forEach(([employee, reqs]) => {
-    // Заголовок сотрудника
-    employeeSheetData.push({
-      'Сотрудник': employee,
-      'Количество заявок': reqs.length,
-      'Последняя заявка': formatDateOnly(reqs[0].createdAt || reqs[0].date),
-      'Детали': ''
-    });
-    
-    // Его заявки
-    reqs.forEach((req, idx) => {
-      employeeSheetData.push({
-        'Сотрудник': `  ${idx + 1}. ${TYPE_LABELS[req.type] || req.type}`,
-        'Количество заявок': '',
-        'Последняя заявка': formatDate(req.createdAt || req.date),
-        'Детали': formatDetails(req)
-      });
-    });
-    
-    // Пустая строка после каждого сотрудника
-    employeeSheetData.push({
-      'Сотрудник': '',
-      'Количество заявок': '',
-      'Последняя заявка': '',
-      'Детали': ''
-    });
-  });
+  const wsStats = XLSX.utils.aoa_to_sheet(stats);
+  wsStats['!cols'] = [{ wch: 30 }, { wch: 15 }];
+  XLSX.utils.book_append_sheet(wb, wsStats, 'Статистика');
 
-  const employeeWorksheet = XLSX.utils.json_to_sheet(employeeSheetData);
-  employeeWorksheet['!cols'] = [
-    { wch: 35 },  // Сотрудник
-    { wch: 18 },  // Количество
-    { wch: 20 },  // Дата
-    { wch: 80 }   // Детали
-  ];
-
-  // 5. Сводная таблица (Статистика)
-  const stats: Record<string, any> = {
-    'ОБЩАЯ СТАТИСТИКА': '',
-    'Всего заявок': requests.length,
-    'Уникальных сотрудников': Object.keys(byEmployee).length,
-    '': '',
-    'ПО СТАТУСАМ': '',
-    'Новые': requests.filter(r => r.status === 'Новая').length,
-    'В работе': requests.filter(r => r.status === 'В работе').length,
-    'Завершены': requests.filter(r => r.status === 'Завершена').length,
-    ' ': '',
-    'ПО КАТЕГОРИЯМ': '',
-    'СИЗ': requests.filter(r => r.type === 'siz').length,
-    'Инструменты': requests.filter(r => r.type === 'tools').length,
-    'Оборудование': requests.filter(r => r.type === 'equipment').length,
-    'Расходники': requests.filter(r => r.type === 'consumables').length,
-    '  ': '',
-    'Дата формирования отчета': formatDate(new Date().toISOString())
-  };
-
-  const statsSheetData = Object.entries(stats).map(([name, count]) => ({
-    'Показатель': name,
-    'Значение': count
-  }));
-
-  const statsSheet = XLSX.utils.json_to_sheet(statsSheetData);
-  statsSheet['!cols'] = [{ wch: 40 }, { wch: 20 }];
-
-  // 6. Создаем книгу и добавляем все листы
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, mainWorksheet, "Общий реестр");
-  XLSX.utils.book_append_sheet(workbook, employeeWorksheet, "По сотрудникам");
-  XLSX.utils.book_append_sheet(workbook, statsSheet, "Статистика");
-
-  // Сохраняем с читаемым именем
+  // Формируем имя файла
   const today = new Date();
-  const filename = `BAUFLEX_Отчет_${today.getDate()}_${String(today.getMonth() + 1).padStart(2, '0')}_${today.getFullYear()}.xlsx`;
-  
-  XLSX.writeFile(workbook, filename);
+  const filename = `BAUFLEX_Заявки_${today.getDate()}_${String(today.getMonth() + 1).padStart(2, '0')}_${today.getFullYear()}.xlsx`;
+
+  // Скачиваем файл
+  XLSX.writeFile(wb, filename);
 };
 
-// --- ЭКСПОРТ В PDF (С ПОДДЕРЖКОЙ КИРИЛЛИЦЫ) ---
+// ============================================
+// ЭКСПОРТ В PDF
+// ============================================
+
 export const exportToPDF = (requests: RequestEntry[]) => {
   if (!requests || requests.length === 0) {
     alert('Нет данных для экспорта');
     return;
   }
-
-  const doc = new jsPDF({
-    orientation: 'landscape',
-    unit: 'mm',
-    format: 'a4'
-  });
-
-  // Настройка для кириллицы - используем встроенные шрифты
-  // Для полной поддержки кириллицы нужно подключить кастомный шрифт
-  // но базово работает с helvetica
-  
-  // Заголовок
-  doc.setFontSize(20);
-  doc.setFont('helvetica', 'bold');
-  doc.text('BAUFLEX MANAGEMENT', 148, 15, { align: 'center' });
-  
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Реестр заявок', 148, 23, { align: 'center' });
-  
-  // Информация о документе
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'italic');
-  const dateStr = formatDate(new Date().toISOString());
-  doc.text(`Сформировано: ${dateStr}`, 148, 29, { align: 'center' });
 
   // Сортируем данные
   const sortedData = [...requests].sort((a, b) => {
@@ -197,7 +199,7 @@ export const exportToPDF = (requests: RequestEntry[]) => {
     return dateB - dateA;
   });
 
-  // Группируем по сотрудникам для отображения
+  // Группируем по сотрудникам
   const byEmployee: Record<string, RequestEntry[]> = {};
   sortedData.forEach(req => {
     if (!byEmployee[req.user]) {
@@ -206,130 +208,181 @@ export const exportToPDF = (requests: RequestEntry[]) => {
     byEmployee[req.user].push(req);
   });
 
-  let startY = 35;
-
-  // Формируем таблицу по сотрудникам
-  Object.entries(byEmployee).forEach(([employee, reqs], empIndex) => {
-    // Проверяем, нужна ли новая страница
-    if (startY > 170) {
-      doc.addPage();
-      startY = 20;
+  // Формируем контент документа
+  const content: any[] = [
+    // Заголовок
+    {
+      text: 'BAUFLEX MANAGEMENT',
+      style: 'header',
+      alignment: 'center',
+      margin: [0, 0, 0, 5]
+    },
+    {
+      text: 'Реестр заявок',
+      style: 'subheader',
+      alignment: 'center',
+      margin: [0, 0, 0, 2]
+    },
+    {
+      text: `Сформировано: ${formatDate(new Date().toISOString())}`,
+      style: 'dateInfo',
+      alignment: 'center',
+      margin: [0, 0, 0, 20]
     }
-
-    // Заголовок сотрудника
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(220, 38, 38); // Красный цвет BAUFLEX
-    doc.text(`Сотрудник: ${employee}`, 14, startY);
-    doc.setTextColor(0, 0, 0);
-    
-    startY += 2;
-
-    // Таблица заявок этого сотрудника
-    const tableRows = reqs.map((req, idx) => [
-      `${idx + 1}`,
-      TYPE_LABELS[req.type] || req.type,
-      req.status || 'Новая',
-      formatDate(req.createdAt || req.date),
-      formatDetails(req)
-    ]);
-
-    autoTable(doc, {
-      startY: startY,
-      head: [['№', 'Тип заявки', 'Статус', 'Дата создания', 'Подробности']],
-      body: tableRows,
-      theme: 'grid',
-      styles: { 
-        fontSize: 8,
-        cellPadding: 2,
-        font: 'helvetica',
-        lineColor: [200, 200, 200],
-        lineWidth: 0.1
-      },
-      headStyles: { 
-        fillColor: [220, 38, 38],
-        textColor: [255, 255, 255],
-        fontSize: 9,
-        fontStyle: 'bold',
-        halign: 'center'
-      },
-      columnStyles: {
-        0: { cellWidth: 10, halign: 'center' },
-        1: { cellWidth: 30 },
-        2: { cellWidth: 25, halign: 'center' },
-        3: { cellWidth: 35, halign: 'center' },
-        4: { cellWidth: 'auto' }
-      },
-      margin: { left: 14, right: 14 },
-      didDrawPage: (data) => {
-        // Номера страниц
-        const pageCount = doc.getNumberOfPages();
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(150, 150, 150);
-        doc.text(
-          `Страница ${doc.getCurrentPageInfo().pageNumber} из ${pageCount}`,
-          148,
-          200,
-          { align: 'center' }
-        );
-      }
-    });
-
-    startY = (doc as any).lastAutoTable.finalY + 8;
-  });
-
-  // Последняя страница - сводка
-  doc.addPage();
-  doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(220, 38, 38);
-  doc.text('СВОДНАЯ СТАТИСТИКА', 148, 20, { align: 'center' });
-  
-  doc.setFontSize(10);
-  doc.setTextColor(0, 0, 0);
-  doc.setFont('helvetica', 'normal');
-
-  const stats = [
-    ['Всего заявок:', requests.length],
-    ['Уникальных сотрудников:', Object.keys(byEmployee).length],
-    ['', ''],
-    ['По статусам:', ''],
-    ['  Новые:', requests.filter(r => r.status === 'Новая').length],
-    ['  В работе:', requests.filter(r => r.status === 'В работе').length],
-    ['  Завершены:', requests.filter(r => r.status === 'Завершена').length],
-    ['', ''],
-    ['По категориям:', ''],
-    ['  СИЗ:', requests.filter(r => r.type === 'siz').length],
-    ['  Инструменты:', requests.filter(r => r.type === 'tools').length],
-    ['  Оборудование:', requests.filter(r => r.type === 'equipment').length],
-    ['  Расходники:', requests.filter(r => r.type === 'consumables').length]
   ];
 
-  autoTable(doc, {
-    startY: 30,
-    head: [['Показатель', 'Значение']],
-    body: stats,
-    theme: 'striped',
-    styles: { 
-      fontSize: 10,
-      cellPadding: 3,
-      font: 'helvetica'
-    },
-    headStyles: { 
-      fillColor: [220, 38, 38],
-      fontSize: 11,
-      fontStyle: 'bold'
-    },
-    columnStyles: {
-      0: { cellWidth: 120 },
-      1: { cellWidth: 60, halign: 'center', fontStyle: 'bold' }
-    },
-    margin: { left: 50, right: 50 }
+  // Добавляем таблицы для каждого сотрудника
+  Object.entries(byEmployee).forEach(([employee, reqs], index) => {
+    // Заголовок сотрудника
+    content.push({
+      text: `Сотрудник: ${employee}`,
+      style: 'employeeHeader',
+      margin: [0, index === 0 ? 0 : 15, 0, 5]
+    });
+
+    // Таблица заявок
+    const tableBody: any[] = [
+      // Заголовки
+      [
+        { text: '№', style: 'tableHeader', fillColor: '#dc2626' },
+        { text: 'Тип заявки', style: 'tableHeader', fillColor: '#dc2626' },
+        { text: 'Статус', style: 'tableHeader', fillColor: '#dc2626' },
+        { text: 'Дата создания', style: 'tableHeader', fillColor: '#dc2626' },
+        { text: 'Подробности', style: 'tableHeader', fillColor: '#dc2626' }
+      ]
+    ];
+
+    // Строки с данными
+    reqs.forEach((req, idx) => {
+      const statusColor = 
+        req.status === 'Новая' ? '#fee2e2' : 
+        req.status === 'В работе' ? '#fef3c7' : 
+        '#d1fae5';
+
+      tableBody.push([
+        { text: (idx + 1).toString(), style: 'tableCell' },
+        { text: TYPE_LABELS[req.type] || req.type, style: 'tableCell' },
+        { text: req.status || 'Новая', style: 'tableCell', fillColor: statusColor },
+        { text: formatDate(req.createdAt || req.date), style: 'tableCell' },
+        { text: formatDetails(req), style: 'tableCellDetails' }
+      ]);
+    });
+
+    content.push({
+      table: {
+        headerRows: 1,
+        widths: [25, 80, 60, 80, '*'],
+        body: tableBody
+      },
+      layout: {
+        hLineWidth: () => 0.5,
+        vLineWidth: () => 0.5,
+        hLineColor: () => '#e5e7eb',
+        vLineColor: () => '#e5e7eb'
+      }
+    });
   });
 
-  // Сохраняем
+  // Добавляем страницу со статистикой
+  content.push({ text: '', pageBreak: 'before' });
+  
+  content.push({
+    text: 'СВОДНАЯ СТАТИСТИКА',
+    style: 'header',
+    alignment: 'center',
+    margin: [0, 20, 0, 20]
+  });
+
+  const statsBody: any[] = [
+    [
+      { text: 'Показатель', style: 'tableHeader', fillColor: '#dc2626' }, 
+      { text: 'Значение', style: 'tableHeader', fillColor: '#dc2626' }
+    ],
+    ['Всего заявок:', requests.length.toString()],
+    ['Уникальных сотрудников:', Object.keys(byEmployee).length.toString()],
+    [{ text: '', colSpan: 2 }, ''],
+    [{ text: 'По статусам:', bold: true, colSpan: 2 }, ''],
+    ['  Новые:', requests.filter(r => r.status === 'Новая' || !r.status).length.toString()],
+    ['  В работе:', requests.filter(r => r.status === 'В работе').length.toString()],
+    ['  Завершены:', requests.filter(r => r.status === 'Завершена').length.toString()],
+    [{ text: '', colSpan: 2 }, ''],
+    [{ text: 'По категориям:', bold: true, colSpan: 2 }, ''],
+    ['  СИЗ:', requests.filter(r => r.type === 'siz').length.toString()],
+    ['  Инструменты:', requests.filter(r => r.type === 'tools').length.toString()],
+    ['  Оборудование:', requests.filter(r => r.type === 'equipment').length.toString()],
+    ['  Расходники:', requests.filter(r => r.type === 'consumables').length.toString()]
+  ];
+
+  content.push({
+    table: {
+      headerRows: 1,
+      widths: [300, 100],
+      body: statsBody
+    },
+    layout: 'lightHorizontalLines'
+  });
+
+  // Определение документа
+  const docDefinition: any = {
+    pageSize: 'A4',
+    pageOrientation: 'landscape',
+    pageMargins: [40, 60, 40, 60],
+    content: content,
+    styles: {
+      header: {
+        fontSize: 20,
+        bold: true,
+        color: '#dc2626'
+      },
+      subheader: {
+        fontSize: 14,
+        bold: true
+      },
+      dateInfo: {
+        fontSize: 9,
+        italics: true,
+        color: '#6b7280'
+      },
+      employeeHeader: {
+        fontSize: 12,
+        bold: true,
+        color: '#dc2626'
+      },
+      tableHeader: {
+        fontSize: 9,
+        bold: true,
+        color: 'white',
+        alignment: 'center'
+      },
+      tableCell: {
+        fontSize: 8,
+        alignment: 'center'
+      },
+      tableCellDetails: {
+        fontSize: 8,
+        alignment: 'left'
+      }
+    },
+    defaultStyle: {
+      font: 'Roboto'
+    },
+    footer: function(currentPage: number, pageCount: number) {
+      return {
+        text: `Страница ${currentPage} из ${pageCount}`,
+        alignment: 'center',
+        fontSize: 8,
+        color: '#9ca3af',
+        margin: [0, 10, 0, 0]
+      };
+    }
+  };
+
+  // Генерируем и скачиваем PDF
   const today = new Date();
   const filename = `BAUFLEX_Отчет_${today.getDate()}_${String(today.getMonth() + 1).padStart(2, '0')}_${today.getFullYear()}.pdf`;
-  doc.save(filename);
+  
+  pdfMake.createPdf(docDefinition).download(filename);
 };
+
+// Экспортируем также старую функцию для обратной совместимости
+export const exportToPDF_pdfmake = exportToPDF;
