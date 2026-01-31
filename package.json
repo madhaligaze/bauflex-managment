@@ -11,7 +11,7 @@
     "prisma:push": "prisma db push",
     "build": "npm run prisma:generate && npm run build:server && npm run build:client",
     "build:client": "vite build",
-    "build:server": "tsc -p tsconfig.server.json",
+    "build:server": "tsup server.ts --format esm --out-dir dist --clean --no-splitting",
     "start": "node dist/server.js",
     "lint": "eslint ."
   },

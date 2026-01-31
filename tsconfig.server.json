@@ -4,18 +4,16 @@
     "module": "ESNext",
     "moduleResolution": "node",
     "outDir": "./dist",
-    "rootDir": "./",
+    "rootDir": ".", 
     "strict": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "allowJs": true,
-    "types": ["node"]
+    "types": ["node"],
+    "noEmit": false
   },
   "include": [
     "server.ts",
-    "routes/**/*.ts",
-    "entities/**/*.ts",
-    "shared/lib/**/*.ts"
-  ],
-  "exclude": ["node_modules", "src"]
+    "routes/**/*.ts"
+  ]
 }
