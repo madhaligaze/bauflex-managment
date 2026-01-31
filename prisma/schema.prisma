@@ -21,15 +21,21 @@ model User {
 }
 
 model Employee {
-  id         Int       @id @default(autoincrement())
-  name       String
-  position   String?
-  email      String?
-  phone      String?
-  department String?
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
-  Request    Request[]
+  id              Int       @id @default(autoincrement())
+  name            String
+  position        String?
+  email           String?
+  phone           String?
+  department      String?
+  
+  // Новые поля для размеров
+  clothingSize    String?   @map("clothing_size")
+  shoeSize        String?   @map("shoe_size")
+  height          String?
+  
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  Request         Request[]
 
   @@map("Employee")
 }
@@ -37,8 +43,14 @@ model Employee {
 model Request {
   id              Int       @id @default(autoincrement())
   requestNumber   String    @unique @map("request_number")
-  employee        Employee  @relation(fields: [employeeId], references: [id])
-  employeeId      Int       @map("employee_id")
+  
+  // Связь с сотрудником теперь опциональная
+  employee        Employee? @relation(fields: [employeeId], references: [id])
+  employeeId      Int?      @map("employee_id")
+  
+  // Добавляем поле для хранения имени если сотрудник не из базы
+  employeeName    String?   @map("employee_name")
+  
   itemName        String    @map("item_name")
   quantity        Int
   unit            String
@@ -46,6 +58,7 @@ model Request {
   purpose         String?
   notes           String?
   status          String    @default("pending")
+  
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 

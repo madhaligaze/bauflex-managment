@@ -8,6 +8,7 @@ import { Input } from '@/shared/ui/Input';
 import { Card } from '@/shared/ui/Card';
 import { Modal } from '@/shared/ui/Modal';
 import { PremiumSelect } from '@/shared/ui/PremiumSelect';
+import { Autocomplete } from '@/shared/ui/Autocomplete';
 
 // Store
 import { useBauflexStore } from '@/entities/request/model/store';
@@ -156,14 +157,18 @@ export const ProcurementWidget = () => {
 
       <Card className="bg-white/10 backdrop-blur-2xl border border-white/20 shadow-2xl p-6 overflow-visible">
         
-        {/* --- ВЫБОР СОТРУДНИКА (ОБЩИЙ ДЛЯ ВСЕХ ФОРМ) --- */}
+        {/* --- ВЫБОР СОТРУДНИКА (АВТОКОМПЛИТ) --- */}
         <div className="mb-6">
-           <PremiumSelect
-            label="Выберите сотрудника"
-            options={employees.map((e: any) => e.fullName)} // Мапим массив объектов в массив строк имен
+           <Autocomplete
+            label="ФИО Сотрудника"
             value={selectedEmployee}
             onChange={setSelectedEmployee}
+            options={employees.map((e: any) => e.fullName)}
+            placeholder="Начните вводить ФИО или выберите из списка..."
           />
+          <p className="text-xs text-white/40 mt-2 ml-1">
+            💡 Выберите из базы или введите вручную
+          </p>
         </div>
 
         {view === 'siz' ? (

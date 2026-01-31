@@ -8,6 +8,11 @@ export interface Employee {
   fullName: string;
   department: string;
   position: string;
+  email?: string;
+  phone?: string;
+  clothingSize?: string;
+  shoeSize?: string;
+  height?: string;
 }
 
 export interface RequestEntry {
@@ -33,6 +38,7 @@ interface BauflexStore {
   // Действия для сотрудников
   fetchEmployees: () => Promise<void>; // Добавили загрузку списка
   addEmployee: (emp: Omit<Employee, 'id'>) => Promise<void>;
+  updateEmployee: (id: string, data: Partial<Employee>) => Promise<void>;
   removeEmployee: (id: string) => Promise<void>;
 }
 
@@ -109,7 +115,21 @@ export const useBauflexStore = create<BauflexStore>()(
         }
       },
 
-      // 6. Удаление сотрудника
+      // 6. Обновление данных сотрудника
+      updateEmployee: async (id, data) => {
+        try {
+          const response = await $api.patch(`/employees/${id}`, data);
+          set((state) => ({
+            employees: state.employees.map((e) => 
+              e.id === id ? { ...e, ...response.data } : e
+            )
+          }));
+        } catch (e) {
+          console.error('Ошибка при обновлении данных сотрудника');
+        }
+      },
+
+      // 7. Удаление сотрудника
       removeEmployee: async (id) => {
         try {
           await $api.delete(`/employees/${id}`);
