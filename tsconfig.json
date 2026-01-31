@@ -5,40 +5,24 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
-
-    /* Подключаем типы Vite и Node */
     "types": ["node", "vite/client"],
-
-    /* Bundler mode */
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": true,
+    "noEmit": false,
     "jsx": "react-jsx",
-    
-    /* Обязательно для References */
-    "composite": true,
+    "composite": false,
     "allowJs": true,
     "esModuleInterop": true,
-
-    /* Linting (Смягченные настройки) */
     "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
-
-    /* Aliases */
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     }
   },
-  "include": [
-    "src",              /* Фронтенд */
-    "server.ts",        /* Сервер */
-    "routes/**/*.ts",   /* Все роуты */
-    "prisma/**/*.ts"    /* Сиды и скрипты базы данных */
-  ],
-  "exclude": ["node_modules", "dist"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
 }
