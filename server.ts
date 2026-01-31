@@ -1,11 +1,16 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs'; // Добавили импорт для хеширования
-import authRoutes from './routes/auth'; 
-import requestRoutes from './routes/requests'; 
-import employeeRoutes from './routes/employees';
+import bcrypt from 'bcryptjs';
+import authRoutes from './routes/auth.js'; 
+import requestRoutes from './routes/requests.js'; 
+import employeeRoutes from './routes/employees.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const prisma = new PrismaClient();
@@ -13,7 +18,7 @@ const prisma = new PrismaClient();
 app.use(cors());
 app.use(express.json());
 
-// Подключаем роуты
+// --- 1. API РОУТЫ (Всегда ставим ПЕРЕД статикой) ---
 app.use('/api/requests', requestRoutes); 
 app.use('/api/employees', employeeRoutes);
 app.use('/api/auth', authRoutes);
@@ -27,7 +32,27 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// --- ФУНКЦИЯ СОЗДАНИЯ ПЕРВОГО АДМИНА ---
+// --- 2. СТАТИКА ---
+// Так как после билда server.js лежит в /dist рядом с index.html
+const distPath = __dirname; 
+
+// Раздаем статические файлы (css, js, картинки)
+app.use(express.static(distPath));
+
+// --- 3. ОБРАБОТКА CLIENT-SIDE ROUTING ---
+// Важно: этот роут должен быть самым последним!
+app.get('*', (req, res) => {
+  // Если запрос пришел на /api, который не обработан выше - отдаем 404
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ message: 'API endpoint not found' });
+  }
+  
+  // Для всего остального (маршруты React) отдаем index.html
+  const indexPath = path.join(distPath, 'index.html');
+  res.sendFile(indexPath);
+});
+
+// --- АДМИН ПРИ ПЕРВОМ ЗАПУСКЕ ---
 const setupAdmin = async () => {
   try {
     const exists = await prisma.user.findUnique({ where: { login: 'admin' } });
@@ -45,12 +70,14 @@ const setupAdmin = async () => {
       console.log('✅ Admin created: admin / admin123');
     }
   } catch (e) {
-    console.error('Error creating admin:', e);
+    console.error('Error creating admin (Check DATABASE_URL):', e);
   }
 };
 
-// Запускаем сервер и создаем админа
-app.listen(5000, async () => {
-  await setupAdmin(); // Запуск проверки при старте
-  console.log('🚀 Server started on http://localhost:5000');
+// Railway прокидывает PORT автоматически, слушаем на 0.0.0.0
+const PORT = Number(process.env.PORT) || 5000;
+
+app.listen(PORT, '0.0.0.0', async () => {
+  await setupAdmin();
+  console.log(`🚀 Server started on port ${PORT}`);
 });
