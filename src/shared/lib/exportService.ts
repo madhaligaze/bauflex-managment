@@ -2,11 +2,10 @@ import * as XLSX from 'xlsx';
 import { RequestEntry } from '@/entities/request/model/store';
 import { formatDate } from './dateFormatter';
 
-// Импорты для PDF - будут использоваться только при вызове функции
+// Импорты для PDF - ленивая загрузка
 let pdfMake: any = null;
 let pdfFonts: any = null;
 
-// Ленивая инициализация pdfMake только при первом вызове
 const initializePdfMake = async () => {
   if (!pdfMake) {
     const pdfMakeModule = await import('pdfmake/build/pdfmake');
@@ -14,14 +13,11 @@ const initializePdfMake = async () => {
     
     pdfMake = pdfMakeModule.default;
     pdfFonts = pdfFontsModule.default;
-    
-    // Настройка виртуальной файловой системы для шрифтов
     pdfMake.vfs = pdfFonts.pdfMake.vfs;
   }
   return pdfMake;
 };
 
-// Маппинг типов заявок
 const TYPE_LABELS: Record<string, string> = {
   siz: 'СИЗ',
   tools: 'Инструменты',
@@ -29,18 +25,13 @@ const TYPE_LABELS: Record<string, string> = {
   consumables: 'Расходники'
 };
 
-// Маппинг статусов
 const STATUS_LABELS: Record<string, string> = {
   'Новая': 'Новая',
   'В работе': 'В работе',
   'Завершена': 'Завершена'
 };
 
-// ============================================
-// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
-// ============================================
-
-// Форматирование деталей для отображения
+// Форматирование деталей
 const formatDetails = (req: RequestEntry): string => {
   if (req.type === 'siz' && req.details) {
     const d = req.details as any;
@@ -74,7 +65,7 @@ const formatDetails = (req: RequestEntry): string => {
   return 'Нет данных';
 };
 
-// Извлечение размеров для СИЗ
+// Извлечение размеров СИЗ
 const extractSizDetails = (req: RequestEntry) => {
   if (req.type === 'siz' && req.details) {
     const d = req.details as any;
@@ -95,24 +86,32 @@ const extractSizDetails = (req: RequestEntry) => {
   };
 };
 
-// ============================================
-// ЭКСПОРТ В EXCEL
-// ============================================
+// ✅ УНИКАЛЬНОЕ ИМЯ ФАЙЛА
+function generateUniqueFilename(prefix: string, extension: string): string {
+  const now = new Date();
+  const day = now.getDate();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  
+  return `${prefix}_${day}_${month}_${year}_${hours}_${minutes}_${seconds}.${extension}`;
+}
 
+// ЭКСПОРТ В EXCEL
 export const exportToExcel = (requests: RequestEntry[]) => {
   if (!requests || requests.length === 0) {
     alert('Нет данных для экспорта');
     return;
   }
 
-  // Сортируем по дате (новые первые)
   const sortedData = [...requests].sort((a, b) => {
     const dateA = new Date(a.createdAt || a.date).getTime();
     const dateB = new Date(b.createdAt || b.date).getTime();
     return dateB - dateA;
   });
 
-  // Формируем данные для Excel с учетом размеров СИЗ
   const excelData = sortedData.map((req, index) => {
     const sizDetails = extractSizDetails(req);
     
@@ -123,7 +122,6 @@ export const exportToExcel = (requests: RequestEntry[]) => {
       'Статус': STATUS_LABELS[req.status || 'Новая'] || req.status || 'Новая',
       'Дата создания': formatDate(req.createdAt || req.date),
       'Подробности': formatDetails(req),
-      // Добавляем колонки с размерами для СИЗ
       'Рост': sizDetails.height,
       'Размер одежды': sizDetails.clothingSize,
       'Сезон одежды': sizDetails.clothingSeason,
@@ -132,30 +130,15 @@ export const exportToExcel = (requests: RequestEntry[]) => {
     };
   });
 
-  // Создаем worksheet
   const ws = XLSX.utils.json_to_sheet(excelData);
-
-  // Настраиваем ширину колонок
-  const colWidths = [
-    { wch: 5 },  // №
-    { wch: 25 }, // Сотрудник
-    { wch: 15 }, // Тип заявки
-    { wch: 12 }, // Статус
-    { wch: 20 }, // Дата создания
-    { wch: 50 }, // Подробности
-    { wch: 10 }, // Рост
-    { wch: 15 }, // Размер одежды
-    { wch: 15 }, // Сезон одежды
-    { wch: 15 }, // Размер обуви
-    { wch: 15 }  // Сезон обуви
+  ws['!cols'] = [
+    { wch: 5 }, { wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 20 },
+    { wch: 50 }, { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }
   ];
-  ws['!cols'] = colWidths;
 
-  // Создаем workbook
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Заявки');
 
-  // Добавляем лист статистики
   const stats = [
     ['Показатель', 'Значение'],
     ['Всего заявок', requests.length],
@@ -176,35 +159,26 @@ export const exportToExcel = (requests: RequestEntry[]) => {
   wsStats['!cols'] = [{ wch: 30 }, { wch: 15 }];
   XLSX.utils.book_append_sheet(wb, wsStats, 'Статистика');
 
-  // Формируем имя файла
-  const today = new Date();
-  const filename = `BAUFLEX_Заявки_${today.getDate()}_${String(today.getMonth() + 1).padStart(2, '0')}_${today.getFullYear()}.xlsx`;
-
-  // Скачиваем файл
+  // ✅ УНИКАЛЬНОЕ ИМЯ
+  const filename = generateUniqueFilename('BAUFLEX_Заявки', 'xlsx');
   XLSX.writeFile(wb, filename);
 };
 
-// ============================================
 // ЭКСПОРТ В PDF
-// ============================================
-
 export const exportToPDF = async (requests: RequestEntry[]) => {
   if (!requests || requests.length === 0) {
     alert('Нет данных для экспорта');
     return;
   }
 
-  // Инициализируем pdfMake
   const pdf = await initializePdfMake();
 
-  // Сортируем данные
   const sortedData = [...requests].sort((a, b) => {
     const dateA = new Date(a.createdAt || a.date).getTime();
     const dateB = new Date(b.createdAt || b.date).getTime();
     return dateB - dateA;
   });
 
-  // Группируем по сотрудникам
   const byEmployee: Record<string, RequestEntry[]> = {};
   sortedData.forEach(req => {
     if (!byEmployee[req.user]) {
@@ -213,9 +187,7 @@ export const exportToPDF = async (requests: RequestEntry[]) => {
     byEmployee[req.user].push(req);
   });
 
-  // Формируем контент документа
   const content: any[] = [
-    // Заголовок
     {
       text: 'BAUFLEX MANAGEMENT',
       style: 'header',
@@ -236,18 +208,14 @@ export const exportToPDF = async (requests: RequestEntry[]) => {
     }
   ];
 
-  // Добавляем таблицы для каждого сотрудника
   Object.entries(byEmployee).forEach(([employee, reqs], index) => {
-    // Заголовок сотрудника
     content.push({
       text: `Сотрудник: ${employee}`,
       style: 'employeeHeader',
       margin: [0, index === 0 ? 0 : 15, 0, 5]
     });
 
-    // Таблица заявок
     const tableBody: any[] = [
-      // Заголовки
       [
         { text: '№', style: 'tableHeader', fillColor: '#dc2626' },
         { text: 'Тип заявки', style: 'tableHeader', fillColor: '#dc2626' },
@@ -257,7 +225,6 @@ export const exportToPDF = async (requests: RequestEntry[]) => {
       ]
     ];
 
-    // Строки с данными
     reqs.forEach((req, idx) => {
       const statusColor = 
         req.status === 'Новая' ? '#fee2e2' : 
@@ -288,9 +255,7 @@ export const exportToPDF = async (requests: RequestEntry[]) => {
     });
   });
 
-  // Добавляем страницу со статистикой
   content.push({ text: '', pageBreak: 'before' });
-  
   content.push({
     text: 'СВОДНАЯ СТАТИСТИКА',
     style: 'header',
@@ -327,46 +292,19 @@ export const exportToPDF = async (requests: RequestEntry[]) => {
     layout: 'lightHorizontalLines'
   });
 
-  // Определение документа
   const docDefinition: any = {
     pageSize: 'A4',
     pageOrientation: 'landscape',
     pageMargins: [40, 60, 40, 60],
     content: content,
     styles: {
-      header: {
-        fontSize: 20,
-        bold: true,
-        color: '#dc2626'
-      },
-      subheader: {
-        fontSize: 14,
-        bold: true
-      },
-      dateInfo: {
-        fontSize: 9,
-        italics: true,
-        color: '#6b7280'
-      },
-      employeeHeader: {
-        fontSize: 12,
-        bold: true,
-        color: '#dc2626'
-      },
-      tableHeader: {
-        fontSize: 9,
-        bold: true,
-        color: 'white',
-        alignment: 'center'
-      },
-      tableCell: {
-        fontSize: 8,
-        alignment: 'center'
-      },
-      tableCellDetails: {
-        fontSize: 8,
-        alignment: 'left'
-      }
+      header: { fontSize: 20, bold: true, color: '#dc2626' },
+      subheader: { fontSize: 14, bold: true },
+      dateInfo: { fontSize: 9, italics: true, color: '#6b7280' },
+      employeeHeader: { fontSize: 12, bold: true, color: '#dc2626' },
+      tableHeader: { fontSize: 9, bold: true, color: 'white', alignment: 'center' },
+      tableCell: { fontSize: 8, alignment: 'center' },
+      tableCellDetails: { fontSize: 8, alignment: 'left' }
     },
     footer: function(currentPage: number, pageCount: number) {
       return {
@@ -379,12 +317,9 @@ export const exportToPDF = async (requests: RequestEntry[]) => {
     }
   };
 
-  // Генерируем и скачиваем PDF
-  const today = new Date();
-  const filename = `BAUFLEX_Отчет_${today.getDate()}_${String(today.getMonth() + 1).padStart(2, '0')}_${today.getFullYear()}.pdf`;
-  
+  // ✅ УНИКАЛЬНОЕ ИМЯ
+  const filename = generateUniqueFilename('BAUFLEX_Отчет', 'pdf');
   pdf.createPdf(docDefinition).download(filename);
 };
 
-// Экспортируем также старую функцию для обратной совместимости
 export const exportToPDF_pdfmake = exportToPDF;

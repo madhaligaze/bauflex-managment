@@ -3,16 +3,19 @@ import { RequestEntry, Employee } from '@/entities/request/model/store';
 import { Card } from '@/shared/ui/Card';
 import { 
   FileSpreadsheet, Users, Clock, CheckCircle, 
-  TrendingUp, Package, AlertCircle, Calendar 
+  TrendingUp, Package, AlertCircle, Calendar, ArrowRight 
 } from 'lucide-react';
 import { formatDateOnly } from '@/shared/lib/dateFormatter';
 
+// ✅ ШАГ 1: Обновлен интерфейс props
 interface DashboardProps {
   requests: RequestEntry[];
   employees: Employee[];
+  onNavigate?: (tab: string, filter?: string) => void;
 }
 
-export const Dashboard = ({ requests, employees }: DashboardProps) => {
+// ✅ ШАГ 2: Добавлен onNavigate в деструктуризацию
+export const Dashboard = ({ requests, employees, onNavigate }: DashboardProps) => {
   const stats = useMemo(() => {
     const today = new Date();
     const thisMonth = today.getMonth();
@@ -37,35 +40,59 @@ export const Dashboard = ({ requests, employees }: DashboardProps) => {
     };
   }, [requests, employees]);
 
+  // ✅ ШАГ 3-6: Обновленный компонент StatCard с поддержкой onClick
   const StatCard = ({ 
     icon: Icon, 
     label, 
     value, 
     color, 
-    trend 
+    trend,
+    onClick // Новый prop
   }: { 
     icon: any; 
     label: string; 
     value: number; 
     color: string;
     trend?: string;
-  }) => (
-    <Card className={`${color} border p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105`}>
-      <div className="flex items-start justify-between mb-4">
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center bg-white/10 backdrop-blur-sm`}>
-          <Icon size={24} className="text-white" />
-        </div>
-        {trend && (
-          <div className="flex items-center gap-1 px-2 py-1 bg-white/10 rounded-lg">
-            <TrendingUp size={12} className="text-white" />
-            <span className="text-xs text-white font-bold">{trend}</span>
+    onClick?: () => void;
+  }) => {
+    // Если передан onClick, рендерим как кнопку, иначе как div
+    const Component = onClick ? 'button' : 'div';
+    
+    return (
+      <Component 
+        onClick={onClick}
+        className={`w-full text-left relative group ${
+          onClick ? 'cursor-pointer focus:outline-none' : ''
+        }`}
+      >
+        <Card className={`${color} border p-6 shadow-lg transition-all duration-300 ${
+          onClick ? 'group-hover:scale-105 group-hover:shadow-xl group-active:scale-95' : 'hover:scale-105'
+        }`}>
+          {/* Индикатор кликабельности (стрелочка) */}
+          {onClick && (
+            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <ArrowRight size={18} className="text-white/40" />
+            </div>
+          )}
+
+          <div className="flex items-start justify-between mb-4">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center bg-white/10 backdrop-blur-sm`}>
+              <Icon size={24} className="text-white" />
+            </div>
+            {trend && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-white/10 rounded-lg">
+                <TrendingUp size={12} className="text-white" />
+                <span className="text-xs text-white font-bold">{trend}</span>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-      <div className="text-4xl font-black text-white mb-1">{value}</div>
-      <div className="text-white/60 text-sm font-medium uppercase tracking-wide">{label}</div>
-    </Card>
-  );
+          <div className="text-4xl font-black text-white mb-1">{value}</div>
+          <div className="text-white/60 text-sm font-medium uppercase tracking-wide">{label}</div>
+        </Card>
+      </Component>
+    );
+  };
 
   const RecentRequests = () => {
     const recent = [...requests]
@@ -86,10 +113,15 @@ export const Dashboard = ({ requests, employees }: DashboardProps) => {
           {recent.map((req) => (
             <div 
               key={req.id}
-              className="flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 transition-all group"
+              // Делаем строки таблицы тоже кликабельными для перехода к деталям (через фильтр)
+              onClick={() => onNavigate?.('requests', 'all')}
+              className="flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 transition-all group cursor-pointer"
             >
               <div className="flex items-center gap-3 flex-1">
-                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                <div className={`w-2 h-2 rounded-full animate-pulse ${
+                    req.status === 'Новая' ? 'bg-red-500' : 
+                    req.status === 'В работе' ? 'bg-yellow-500' : 'bg-emerald-500'
+                }`}></div>
                 <div className="flex-1">
                   <div className="text-white font-semibold group-hover:text-red-400 transition-colors">
                     {req.user}
@@ -152,7 +184,7 @@ export const Dashboard = ({ requests, employees }: DashboardProps) => {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-      {/* Главные метрики */}
+      {/* Главные метрики - теперь кликабельные */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
           icon={FileSpreadsheet}
@@ -160,34 +192,40 @@ export const Dashboard = ({ requests, employees }: DashboardProps) => {
           value={stats.total}
           color="bg-gradient-to-br from-red-600 to-red-800 border-red-500/30"
           trend={`+${stats.thisMonth} этот месяц`}
+          onClick={() => onNavigate?.('requests', 'all')}
         />
         <StatCard 
           icon={AlertCircle}
           label="Новые заявки"
           value={stats.new}
           color="bg-gradient-to-br from-orange-600 to-orange-800 border-orange-500/30"
+          onClick={() => onNavigate?.('requests', 'Новая')}
         />
         <StatCard 
           icon={Clock}
           label="В работе"
           value={stats.inProgress}
           color="bg-gradient-to-br from-yellow-600 to-yellow-800 border-yellow-500/30"
+          onClick={() => onNavigate?.('requests', 'В работе')}
         />
         <StatCard 
           icon={CheckCircle}
           label="Завершено"
           value={stats.completed}
           color="bg-gradient-to-br from-emerald-600 to-emerald-800 border-emerald-500/30"
+          onClick={() => onNavigate?.('requests', 'Завершена')}
         />
       </div>
 
       {/* Вторая строка - Сотрудники и статистика */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Добавил навигацию и на карточку сотрудников */}
         <StatCard 
           icon={Users}
           label="Сотрудников в базе"
           value={stats.totalEmployees}
           color="bg-gradient-to-br from-indigo-600 to-indigo-800 border-indigo-500/30"
+          onClick={() => onNavigate?.('users')} 
         />
         
         <div className="lg:col-span-2">

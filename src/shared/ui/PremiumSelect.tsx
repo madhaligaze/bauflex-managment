@@ -3,18 +3,36 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 
-interface SelectProps {
-  label: string;
+// ✅ Добавлен интерфейс для опций в виде объектов
+interface SelectOption {
   value: string;
-  options: string[];
-  onChange: (val: string) => void;
+  label: string;
 }
 
-export const PremiumSelect = ({ label, value, options, onChange }: SelectProps) => {
+interface SelectProps {
+  label?: string; // ✅ Теперь опциональный
+  value: string;
+  options: string[] | SelectOption[]; // ✅ Поддержка обоих форматов
+  onChange: (val: string) => void;
+  placeholder?: string; // ✅ Новый prop
+}
+
+export const PremiumSelect = ({ 
+  label, 
+  value, 
+  options, 
+  onChange,
+  placeholder = "Выбрать..." 
+}: SelectProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Закрытие по клику вне области (для Desktop)
+  // ✅ Нормализация опций - поддержка строк и объектов
+  const normalizedOptions = options.map(opt => 
+    typeof opt === 'string' ? { value: opt, label: opt } : opt
+  );
+
+  // Закрытие по клику вне области
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -25,11 +43,18 @@ export const PremiumSelect = ({ label, value, options, onChange }: SelectProps) 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // ✅ Найти текущую label для отображения
+  const currentOption = normalizedOptions.find(opt => opt.value === value);
+  const displayValue = currentOption ? currentOption.label : value;
+
   return (
     <div className="flex flex-col gap-2 w-full relative" ref={containerRef}>
-      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">
-        {label}
-      </span>
+      {/* ✅ Label теперь опциональный */}
+      {label && (
+        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">
+          {label}
+        </span>
+      )}
       
       <button
         type="button"
@@ -41,7 +66,7 @@ export const PremiumSelect = ({ label, value, options, onChange }: SelectProps) 
         )}
       >
         <span className={cn("text-base truncate mr-2", !value ? "text-slate-400" : "text-slate-900 font-medium")}>
-          {value || "Выбрать..."}
+          {displayValue || placeholder}
         </span>
         <ChevronDown className={cn("w-5 h-5 text-slate-400 transition-transform duration-300 flex-shrink-0", isOpen && "rotate-180")} />
       </button>
@@ -49,7 +74,7 @@ export const PremiumSelect = ({ label, value, options, onChange }: SelectProps) 
       <AnimatePresence>
         {isOpen && (
           <>
-            {/* Backdrop только для Mobile (видимый) и для Desktop (прозрачный затвор) */}
+            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -58,22 +83,18 @@ export const PremiumSelect = ({ label, value, options, onChange }: SelectProps) 
               className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-[60] md:bg-transparent md:backdrop-blur-none"
             />
             
-            {/* Content Container */}
+            {/* Dropdown Content */}
             <motion.div
-              // Mobile: снизу вверх | Desktop: появление сверху вниз
               initial={{ y: "100%", opacity: 1 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: "100%", opacity: 1 }}
               transition={{ type: "spring", damping: 30, stiffness: 300, mass: 0.8 }}
               className={cn(
-                // Базовые стили Mobile (iOS Sheet)
                 "fixed bottom-0 left-0 right-0 z-[70] bg-white rounded-t-[32px] shadow-[0_-8px_40px_rgba(0,0,0,0.12)] max-h-[80vh] overflow-hidden flex flex-col",
-                // Адаптация под Desktop (Dropdown)
                 "md:absolute md:bottom-auto md:top-[calc(100%+8px)] md:left-0 md:right-0 md:rounded-2xl md:shadow-premium md:max-h-60 md:origin-top"
               )}
               style={{
-                // На десктопе отключаем анимацию "выезда снизу"
-                transformOrigin: window.innerWidth > 768 ? 'top' : 'bottom'
+                transformOrigin: typeof window !== 'undefined' && window.innerWidth > 768 ? 'top' : 'bottom'
               }}
             >
               {/* Mobile Drag Handle */}
@@ -81,22 +102,23 @@ export const PremiumSelect = ({ label, value, options, onChange }: SelectProps) 
               
               <div className="flex-1 overflow-y-auto px-4 pb-8 md:p-2 md:pb-2">
                 <div className="flex flex-col gap-1">
-                  {options.map((opt) => (
+                  {/* ✅ Используем нормализованные опции */}
+                  {normalizedOptions.map((opt) => (
                     <button
-                      key={opt}
+                      key={opt.value}
                       onClick={() => {
-                        onChange(opt);
+                        onChange(opt.value);
                         setIsOpen(false);
                       }}
                       className={cn(
                         "flex items-center justify-between px-6 py-4 md:px-4 md:py-3 rounded-xl text-left transition-all duration-200",
-                        value === opt 
+                        value === opt.value 
                           ? "bg-indigo-50 text-indigo-700 font-bold" 
                           : "hover:bg-slate-50 text-slate-700 active:bg-slate-100"
                       )}
                     >
-                      <span className="text-base md:text-sm">{opt}</span>
-                      {value === opt && (
+                      <span className="text-base md:text-sm">{opt.label}</span>
+                      {value === opt.value && (
                         <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
                           <Check className="w-5 h-5 text-indigo-600" />
                         </motion.div>

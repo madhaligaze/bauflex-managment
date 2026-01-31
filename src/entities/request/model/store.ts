@@ -22,19 +22,22 @@ export interface RequestEntry {
   date: string;
   status: 'Новая' | 'В работе' | 'Завершена';
   details: any;
-  createdAt?: string; // Поле из БД
+  createdAt?: string;
+  requestNumber?: string;
 }
 
 interface BauflexStore {
   requests: RequestEntry[];
   employees: Employee[];
   isLoading: boolean;
+  lastFetch: number; // Timestamp последнего обновления
   
   // Действия для заявок
   fetchRequests: () => Promise<void>;
   addRequest: (request: Omit<RequestEntry, 'id' | 'date' | 'status'>) => Promise<void>;
   updateStatus: (id: string, status: RequestEntry['status']) => Promise<void>;
-  deleteRequest: (id: string) => Promise<void>; // Добавлено
+  updateRequest: (id: string, data: Partial<RequestEntry>) => Promise<void>; // ✅ НОВОЕ
+  deleteRequest: (id: string) => Promise<void>;
   
   // Действия для сотрудников
   fetchEmployees: () => Promise<void>;
@@ -43,54 +46,68 @@ interface BauflexStore {
   removeEmployee: (id: string) => Promise<void>;
 }
 
-// --- Store ---
 export const useBauflexStore = create<BauflexStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       requests: [],
       employees: [],
       isLoading: false,
+      lastFetch: 0,
 
-      // 1. Загрузка всех заявок (для Админки)
+      // Загрузка заявок
       fetchRequests: async () => {
         set({ isLoading: true });
         try {
           const response = await $api.get('/requests');
-          set({ requests: response.data });
+          set({ 
+            requests: response.data,
+            lastFetch: Date.now()
+          });
+          console.log('✅ Заявки загружены:', response.data.length);
         } catch (e) {
-          console.error('Ошибка при получении списка заявок с сервера:', e);
+          console.error('❌ Ошибка загрузки заявок:', e);
         } finally {
           set({ isLoading: false });
         }
       },
 
-      // 2. Загрузка всех сотрудников (для выбора в формах и управления)
+      // Загрузка сотрудников
       fetchEmployees: async () => {
         try {
           const response = await $api.get('/employees');
           set({ employees: response.data });
+          console.log('✅ Сотрудники загружены:', response.data.length);
         } catch (e) {
-          console.error('Ошибка при получении списка сотрудников:', e);
+          console.error('❌ Ошибка загрузки сотрудников:', e);
         }
       },
 
-      // 3. Создание новой заявки
+      // Создание заявки
       addRequest: async (data) => {
         set({ isLoading: true });
         try {
           const response = await $api.post('/requests', data);
-          set((state) => ({
-            requests: [response.data, ...state.requests]
-          }));
+          
+          // Если создано несколько заявок (инструменты)
+          if (response.data.requests) {
+            await get().fetchRequests(); // Перезагружаем все
+          } else {
+            // Одна заявка (СИЗ)
+            set((state) => ({
+              requests: [response.data, ...state.requests]
+            }));
+          }
+          
+          console.log('✅ Заявка создана');
         } catch (e) {
-          console.error('Ошибка сохранения заявки на сервере:', e);
+          console.error('❌ Ошибка создания заявки:', e);
           throw e; 
         } finally {
           set({ isLoading: false });
         }
       },
 
-      // 4. Обновление статуса
+      // Обновление статуса
       updateStatus: async (id, status) => {
         try {
           const response = await $api.patch(`/requests/${id}`, { status });
@@ -99,51 +116,74 @@ export const useBauflexStore = create<BauflexStore>()(
               r.id === id ? { ...r, status: response.data.status } : r
             )
           }));
+          console.log(`✅ Статус обновлен: ${id} → ${status}`);
         } catch (e) {
-          console.error('Не удалось обновить статус на сервере:', e);
+          console.error('❌ Ошибка обновления статуса:', e);
+          throw e;
         }
       },
 
-      // 5. Удаление заявки (НОВОЕ)
+      // ✅ НОВОЕ: Полное обновление заявки
+      updateRequest: async (id, data) => {
+        try {
+          console.log('📝 Обновление заявки:', { id, data });
+          
+          const response = await $api.put(`/requests/${id}`, data);
+          
+          set((state) => ({
+            requests: state.requests.map((r) => 
+              r.id === id ? response.data : r
+            )
+          }));
+          
+          console.log('✅ Заявка обновлена:', response.data);
+        } catch (e) {
+          console.error('❌ Ошибка обновления заявки:', e);
+          throw e;
+        }
+      },
+
+      // Удаление заявки
       deleteRequest: async (id) => {
         try {
           await $api.delete(`/requests/${id}`);
           set((state) => ({
             requests: state.requests.filter((r) => r.id !== id)
           }));
+          console.log(`🗑️ Заявка удалена: ${id}`);
         } catch (e) {
-          console.error('Ошибка при удалении заявки:', e);
+          console.error('❌ Ошибка удаления:', e);
           throw e;
         }
       },
 
-      // 6. Регистрация сотрудника
-      addEmployee: async (data) => {
+      // Сотрудники
+      addEmployee: async (emp) => {
         try {
-          const response = await $api.post('/employees', data);
+          const response = await $api.post('/employees', emp);
           set((state) => ({
             employees: [...state.employees, response.data]
           }));
         } catch (e) {
-          console.error('Ошибка при регистрации сотрудника:', e);
+          console.error('❌ Ошибка добавления сотрудника:', e);
+          throw e;
         }
       },
 
-      // 7. Обновление данных сотрудника
       updateEmployee: async (id, data) => {
         try {
           const response = await $api.patch(`/employees/${id}`, data);
           set((state) => ({
             employees: state.employees.map((e) => 
-              e.id === id ? { ...e, ...response.data } : e
+              e.id === id ? response.data : e
             )
           }));
         } catch (e) {
-          console.error('Ошибка при обновлении данных сотрудника:', e);
+          console.error('❌ Ошибка обновления сотрудника:', e);
+          throw e;
         }
       },
 
-      // 8. Удаление сотрудника
       removeEmployee: async (id) => {
         try {
           await $api.delete(`/employees/${id}`);
@@ -151,15 +191,17 @@ export const useBauflexStore = create<BauflexStore>()(
             employees: state.employees.filter((e) => e.id !== id)
           }));
         } catch (e) {
-          console.error('Ошибка при удалении сотрудника:', e);
+          console.error('❌ Ошибка удаления сотрудника:', e);
+          throw e;
         }
       }
     }),
-    { 
-      name: 'bauflex-pro-storage',
-      // Оставляем в localStorage только сотрудников для быстрой подгрузки форм,
-      // а заявки всегда будем тянуть свежие с сервера в админке.
-      partialize: (state) => ({ employees: state.employees })
+    {
+      name: 'bauflex-storage',
+      partialize: (state) => ({
+        employees: state.employees,
+        lastFetch: state.lastFetch
+      })
     }
   )
 );

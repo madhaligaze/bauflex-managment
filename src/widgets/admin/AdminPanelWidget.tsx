@@ -7,6 +7,7 @@ import { exportToExcel, exportToPDF } from '@/shared/lib/exportService';
 import { EmployeeEditModal } from '@/widgets/admin/EmployeeEditModal';
 
 // Модульные компоненты
+import { RefreshButton } from './components/RefreshButton'; // ✅ ШАГ 1: Импорт
 import { RequestsTable } from './components/RequestsTable';
 import { RequestDetails } from './components/RequestDetails';
 import { EmployeesTable } from './components/EmployeesTable';
@@ -22,16 +23,26 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
   const { 
     requests, 
     updateStatus, 
+    updateRequest, // ✅ ШАГ 6: Добавлен updateRequest
     deleteRequest,
     employees, 
     addEmployee, 
     updateEmployee, 
     removeEmployee,
     fetchRequests,
-    fetchEmployees
+    fetchEmployees,
+    lastFetch // ✅ Добавлено для RefreshButton
   } = useBauflexStore();
   
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'requests' | 'users' | 'security'>('dashboard');
+  // ✅ ШАГ 2: Обновлен useState для activeTab (восстановление из localStorage)
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'requests' | 'users' | 'security'>(() => {
+    const saved = localStorage.getItem('adminActiveTab');
+    return (saved as any) || 'dashboard';
+  });
+
+  // ✅ ШАГ 8: Добавлен state для фильтрации
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   
   // Состояния для модалки редактирования сотрудника
@@ -48,14 +59,28 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
     fetchEmployees();
   }, []);
 
+  // ✅ ШАГ 3: Сохраняем активную вкладку при изменении
+  useEffect(() => {
+    localStorage.setItem('adminActiveTab', activeTab);
+  }, [activeTab]);
+
   const selectedRequest = requests.find((r: RequestEntry) => r.id === selectedRequestId);
 
-  // Фильтрация заявок по поиску
-  const filteredRequests = requests.filter((req: RequestEntry) => 
-    req.user.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // ✅ ШАГ 8: Обновлена логика фильтрации (поиск + статус)
+  const filteredRequests = requests.filter((req: RequestEntry) => {
+    const matchesSearch = req.user.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || req.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   // --- ОБРАБОТЧИКИ ---
+
+  // ✅ ШАГ 4: Обработчик обновления
+  const handleRefresh = async () => {
+    await fetchRequests();
+    await fetchEmployees();
+  };
+
   const handleOpenEditModal = (emp: Employee | null = null) => {
     setEditingEmployee(emp);
     setIsEditModalOpen(true);
@@ -97,7 +122,17 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
   // RENDER: DASHBOARD
   // ==========================================
   const renderDashboard = () => (
-    <Dashboard requests={requests} employees={employees} />
+    // ✅ ШАГ 9: Обновлен вызов Dashboard с onNavigate
+    <Dashboard 
+      requests={requests} 
+      employees={employees} 
+      onNavigate={(tab, filter) => {
+        setActiveTab(tab as any);
+        if (filter && filter !== 'all') {
+          setStatusFilter(filter);
+        }
+      }}
+    />
   );
 
   // ==========================================
@@ -118,6 +153,15 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
               </span>
             </div>
              
+            <div className="h-4 w-px bg-white/10 hidden sm:block" />
+
+            {/* ✅ ШАГ 5: Кнопка обновления */}
+            <RefreshButton
+              onRefresh={handleRefresh}
+              lastUpdated={lastFetch} // ✅ ИСПРАВЛЕНО: используем lastUpdated и переменную из стора
+            />
+
+            {/* Разделитель */}
             <div className="h-4 w-px bg-white/10 hidden sm:block" />
 
             <div className="flex gap-2 w-full sm:w-auto">
@@ -169,6 +213,13 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
           onClose={() => setSelectedRequestId(null)}
           onUpdateStatus={(status) => {
             handleUpdateRequestStatus(selectedRequest.id, status);
+            setSelectedRequestId(null);
+          }}
+          // ✅ ШАГ 7: Добавлен prop onUpdate
+          onUpdate={async (data) => {
+            if (updateRequest) {
+              await updateRequest(selectedRequest.id, data);
+            }
             setSelectedRequestId(null);
           }}
         />
@@ -230,7 +281,9 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
           onClose={() => {
             setIsEditModalOpen(false);
             setEditingEmployee(null);
-          } } isOpen={false}        />
+          }} 
+          isOpen={isEditModalOpen}
+        />
       )}
     </div>
   );

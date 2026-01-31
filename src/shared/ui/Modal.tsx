@@ -6,10 +6,10 @@ import { Button } from './Button';
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm?: () => void; // Сделали опциональным для гибкости
+  onConfirm?: () => void;
   title: string;
-  description: string;
-  children?: React.ReactNode; // Теперь компонент может принимать вложенный контент
+  description?: string; // ✅ Теперь опциональный
+  children?: React.ReactNode;
 }
 
 export const Modal = ({ 
@@ -47,9 +47,12 @@ export const Modal = ({
                 
                 <h3 className="text-xl font-bold text-slate-900 mb-2">{title}</h3>
                 
-                <p className="text-slate-500 text-sm mb-6 leading-relaxed">
-                  {description}
-                </p>
+                {/* ✅ Показываем description только если он передан */}
+                {description && (
+                  <p className="text-slate-500 text-sm mb-6 leading-relaxed">
+                    {description}
+                  </p>
+                )}
 
                 {/* Рендерим дочерние элементы, если они переданы */}
                 {children && (

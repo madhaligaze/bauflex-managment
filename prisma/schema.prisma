@@ -28,7 +28,7 @@ model Employee {
   phone           String?
   department      String?
   
-  // Новые поля для размеров
+  // Поля для размеров (используются как дефолтные)
   clothingSize    String?   @map("clothing_size")
   shoeSize        String?   @map("shoe_size")
   height          String?
@@ -44,13 +44,14 @@ model Request {
   id              Int       @id @default(autoincrement())
   requestNumber   String    @unique @map("request_number")
   
-  // Связь с сотрудником теперь опциональная
+  // Связь с сотрудником (опциональная)
   employee        Employee? @relation(fields: [employeeId], references: [id])
   employeeId      Int?      @map("employee_id")
   
-  // Добавляем поле для хранения имени если сотрудник не из базы
+  // Имя сотрудника если не из базы
   employeeName    String?   @map("employee_name")
   
+  // Основные поля заявки
   itemName        String    @map("item_name")
   quantity        Int
   unit            String
@@ -58,6 +59,14 @@ model Request {
   purpose         String?
   notes           String?
   status          String    @default("pending")
+  
+  // ✨ НОВОЕ: JSON поле для хранения структурированных деталей
+  // Для СИЗ: { height, clothingSize, clothingSeason, shoeSize, shoeSeason }
+  // Для инструментов/оборудования: массив { name, qty }
+  detailsJson     Json?     @map("details_json")
+  
+  // Тип заявки (для упрощения фильтрации)
+  requestType     String?   @map("request_type") // 'siz', 'tools', 'equipment', 'consumables'
   
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
