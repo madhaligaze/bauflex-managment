@@ -64,6 +64,10 @@ function App() {
           autoPlay loop muted playsInline 
           className="w-full h-full object-cover scale-100 opacity-80" 
           style={{ filter: 'brightness(0.8) contrast(1.1)' }}
+          onError={(e) => {
+            // Fallback если видео не загрузилось
+            e.currentTarget.style.display = 'none';
+          }}
         >
           <source src="https://kgiabptsnckcwqjeeztj.supabase.co/storage/v1/object/public/background/8WMyJX4AMulUjd5lRfWR+F_B0yx-4I2Y.mp4" type="video/mp4" />
         </video>
@@ -150,11 +154,11 @@ function App() {
       <LoginModal 
         isOpen={isLoginOpen} 
         onClose={() => setIsLoginOpen(false)} 
-        onLoginSuccess={() => {
+        onLoginSuccess={(token: string, role: string) => {
           setIsAuthorized(true);
           setViewMode('admin');
-          localStorage.setItem('token', 'demo-token-123');
-          localStorage.setItem('role', 'ADMIN');
+          localStorage.setItem('token', token);
+          localStorage.setItem('role', role);
         }} 
       />
     </div>

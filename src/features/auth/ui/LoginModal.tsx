@@ -7,7 +7,7 @@ import { Button } from '@/shared/ui/Button';
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLoginSuccess: () => void;
+  onLoginSuccess: (token: string, role: string) => void;
 }
 
 export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
@@ -51,11 +51,8 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
       const data = await response.json();
 
       if (response.ok) {
-        // Сохраняем токен и роль, полученные от сервера
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('role', data.role);
-        
-        onLoginSuccess();
+        // Вызываем onLoginSuccess с токеном и ролью
+        onLoginSuccess(data.token, data.role);
         handleClose();
       } else {
         alert(data.message || 'Ошибка входа');
