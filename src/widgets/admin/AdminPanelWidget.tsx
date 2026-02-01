@@ -191,9 +191,9 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
               />
             </div>
 
-            {/* Поиск - исправлено выравнивание плейсхолдера */}
+            {/* Поиск */}
             <div className="relative flex-1 group">
-              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none z-10">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none z-10">
                 <Search size={16} />
               </div>
               <input
@@ -201,7 +201,7 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
                 placeholder="Поиск по сотруднику..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-10 sm:h-11 bg-white/5 border border-white/10 rounded-xl pl-[42px] pr-4 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50 transition-all hover:bg-white/10 hover:border-white/20"
+                className="w-full h-10 sm:h-11 bg-white/5 border border-white/10 rounded-xl pl-14 pr-4 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50 transition-all hover:bg-white/10 hover:border-white/20"
               />
             </div>
           </div>
