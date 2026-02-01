@@ -108,7 +108,7 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
 
   const renderRequests = () => (
     <div className="h-full animate-in fade-in slide-in-from-right-4 duration-500 flex flex-col">
-      <Card className="flex-1 bg-slate-900/60 backdrop-blur-3xl border-white/10 p-0 overflow-hidden shadow-2xl flex flex-col">
+      <Card className="flex-1 bg-[#131722]/80 backdrop-blur-3xl border-white/10 p-0 overflow-hidden shadow-2xl flex flex-col">
         
         {/* HEADER */}
         <div className="p-4 border-b border-white/5 bg-white/[0.02] space-y-4">
@@ -120,39 +120,42 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
               </div>
               <div>
                 <h2 className="text-lg font-bold text-white uppercase tracking-wide leading-none">Заявки</h2>
-                <span className="text-xs text-white/40">Управление запросами</span>
+                <div className="flex items-center gap-2 mt-1">
+                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                   <span className="text-xs text-white/40">Активных: {requests.length}</span>
+                </div>
               </div>
             </div>
 
-            {/* FIXED: Big visible buttons */}
+            {/* Buttons: Restoration of Original Style (Outline) but readable */}
             <div className="flex w-full md:w-auto gap-2">
               <Button 
                 onClick={() => exportToExcel(requests)} 
                 variant="secondary" 
-                className="flex-1 md:flex-none h-11 bg-[#1d7c48]/20 border border-[#1d7c48]/50 text-[#4ade80] hover:bg-[#1d7c48]/40 hover:text-white font-bold px-6 text-sm uppercase tracking-wider transition-all"
+                className="flex-1 md:flex-none h-10 bg-transparent border border-white/20 text-white/80 hover:bg-white/5 hover:text-white hover:border-white/40 font-bold px-6 text-xs uppercase tracking-wider transition-all"
               >
+                <FileSpreadsheet size={16} className="mr-2 text-emerald-500" />
                 Excel
               </Button>
               <Button 
                 onClick={() => exportToPDF(requests)} 
                 variant="secondary" 
-                className="flex-1 md:flex-none h-11 bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/30 hover:text-white font-bold px-6 text-sm uppercase tracking-wider transition-all"
+                className="flex-1 md:flex-none h-10 bg-transparent border border-white/20 text-white/80 hover:bg-white/5 hover:text-white hover:border-white/40 font-bold px-6 text-xs uppercase tracking-wider transition-all"
               >
+                <FileSpreadsheet size={16} className="mr-2 text-red-500" />
                 PDF
               </Button>
             </div>
           </div>
 
-          {/* Row 2: Search & Status */}
+          {/* Row 2: Search & Refresh */}
           <div className="flex flex-col md:flex-row gap-4 items-center">
-             {/* Refresh */}
              <div className="flex-shrink-0">
                <RefreshButton onRefresh={handleRefresh} lastUpdated={lastFetch} />
              </div>
 
-             {/* FIXED: Search Input - more padding, cleaner look */}
              <div className="relative flex-1 w-full group">
-               <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none transition-colors group-focus-within:text-red-500">
+               <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none transition-colors group-focus-within:text-white">
                  <Search size={18} />
                </div>
                <input
@@ -204,7 +207,7 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
 
   const renderUsers = () => (
     <div className="h-full animate-in fade-in slide-in-from-right-4 duration-500 flex flex-col">
-      <Card className="flex-1 bg-slate-900/60 backdrop-blur-3xl border-white/10 p-0 overflow-hidden shadow-2xl flex flex-col">
+      <Card className="flex-1 bg-[#131722]/80 backdrop-blur-3xl border-white/10 p-0 overflow-hidden shadow-2xl flex flex-col">
         <div className="p-4 border-b border-white/5 bg-white/[0.02] flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3 self-start md:self-center">
             <div className="p-2 bg-indigo-500/10 rounded-lg">
@@ -251,7 +254,7 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
 
   const renderSecurity = () => (
     <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-      <Card className="bg-slate-900/60 backdrop-blur-3xl border-white/10 p-6 shadow-2xl">
+      <Card className="bg-[#131722]/80 backdrop-blur-3xl border-white/10 p-6 shadow-2xl">
         <div className="flex items-center gap-4 mb-6">
           <div className="w-12 h-12 bg-red-500/10 rounded-xl flex items-center justify-center border border-red-500/20">
             <Lock size={24} className="text-red-500" />
@@ -300,17 +303,19 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
     <div className="min-h-screen bg-[#050608] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#050608] to-[#050608] p-4 md:p-6 text-slate-200">
       <div className="max-w-[1600px] mx-auto">
         
-        {/* Top Bar */}
+        {/* Top Bar - RESTORED ORIGINAL */}
         <div className="flex items-center justify-between mb-8">
           <div>
+            {/* ОРИГИНАЛЬНЫЙ ЗАГОЛОВОК */}
             <h1 className="text-2xl md:text-3xl font-black text-white uppercase tracking-wider">
-              Bauflex <span className="text-red-600">Admin</span>
+              ПАНЕЛЬ АДМИНИСТРАТОРА
             </h1>
-            <p className="text-white/40 text-xs md:text-sm tracking-widest uppercase">Management System v1.0</p>
+            <p className="text-white/40 text-xs md:text-sm tracking-widest uppercase mt-1">
+              BAUFLEX Management System
+            </p>
           </div>
           
           <div className="flex items-center gap-3">
-             {/* Mobile Menu Toggle */}
              <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="lg:hidden w-10 h-10 flex items-center justify-center bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 text-white"
@@ -321,7 +326,7 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
             <Button 
               onClick={onLogout}
               variant="secondary"
-              className="hidden lg:flex bg-white/5 border-white/10 hover:bg-red-900/20 hover:border-red-500/30 hover:text-red-400 h-10 px-4"
+              className="hidden lg:flex bg-transparent border border-white/20 hover:bg-white/5 hover:border-white/40 text-white h-10 px-6 font-bold uppercase text-xs tracking-wider"
             >
               <LogOut size={16} className="mr-2" />
               Выход

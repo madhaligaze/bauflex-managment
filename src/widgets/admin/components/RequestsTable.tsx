@@ -90,28 +90,39 @@ export const RequestsTable = ({ requests, onView, onDelete, onUpdateStatus }: Re
           <span className="text-xs text-white/80 font-bold uppercase tracking-wider">Фильтры</span>
         </div>
         
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="h-9 px-3 text-xs bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-red-500/50 hover:bg-white/10 transition-colors cursor-pointer"
-        >
-          <option value="all" className="bg-slate-900">Все статусы</option>
-          <option value="Новая" className="bg-slate-900">Новые</option>
-          <option value="В работе" className="bg-slate-900">В работе</option>
-          <option value="Завершена" className="bg-slate-900">Завершенные</option>
-        </select>
+        {/* FIXED: Increased height to h-10 and adjusted padding to prevent text cut-off */}
+        <div className="relative">
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="h-10 pl-3 pr-8 text-xs bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-red-500/50 hover:bg-white/10 transition-colors cursor-pointer appearance-none min-w-[120px]"
+          >
+            <option value="all" className="bg-slate-900">Все статусы</option>
+            <option value="Новая" className="bg-slate-900">Новые</option>
+            <option value="В работе" className="bg-slate-900">В работе</option>
+            <option value="Завершена" className="bg-slate-900">Завершенные</option>
+          </select>
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/40">
+            <ArrowUpDown size={12} />
+          </div>
+        </div>
 
-        <select
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
-          className="h-9 px-3 text-xs bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-red-500/50 hover:bg-white/10 transition-colors cursor-pointer"
-        >
-          <option value="all" className="bg-slate-900">Все типы</option>
-          <option value="siz" className="bg-slate-900">СИЗ</option>
-          <option value="tools" className="bg-slate-900">Инструменты</option>
-          <option value="equipment" className="bg-slate-900">Оборудование</option>
-          <option value="consumables" className="bg-slate-900">Расходники</option>
-        </select>
+        <div className="relative">
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="h-10 pl-3 pr-8 text-xs bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-red-500/50 hover:bg-white/10 transition-colors cursor-pointer appearance-none min-w-[120px]"
+          >
+            <option value="all" className="bg-slate-900">Все типы</option>
+            <option value="siz" className="bg-slate-900">СИЗ</option>
+            <option value="tools" className="bg-slate-900">Инструменты</option>
+            <option value="equipment" className="bg-slate-900">Оборудование</option>
+            <option value="consumables" className="bg-slate-900">Расходники</option>
+          </select>
+           <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/40">
+            <ArrowUpDown size={12} />
+          </div>
+        </div>
 
         <div className="ml-auto text-xs flex items-center gap-2">
           <span className="text-white/40">Всего:</span>
@@ -164,7 +175,6 @@ export const RequestsTable = ({ requests, onView, onDelete, onUpdateStatus }: Re
                 >
                   {/* ФИО */}
                   <td className="px-6 py-4 align-middle relative">
-                     {/* Акцентная полоска слева (вместо сложного div) */}
                     <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="font-bold text-white group-hover:text-red-100 transition-colors truncate pr-4" title={req.user}>
                       {req.user}
