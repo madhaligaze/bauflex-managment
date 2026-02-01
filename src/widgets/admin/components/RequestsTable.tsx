@@ -169,8 +169,8 @@ export const RequestsTable = ({ requests, onView, onDelete, onUpdateStatus }: Re
                   transition={{ delay: index * 0.03 }}
                   className="border-b border-white/5 hover:bg-white/[0.03] transition-all duration-200 group relative"
                 >
-                  {/* Hover accent line */}
-                  <td className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-red-500/0 via-red-500/50 to-red-500/0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  {/* Hover accent line - NOT a td element */}
+                  <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-red-500/0 via-red-500/50 to-red-500/0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                   
                   {/* FIXED: ФИО cell - proper alignment */}
                   <td className="p-4 pl-6">

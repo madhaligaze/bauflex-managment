@@ -72,7 +72,7 @@ export const Autocomplete = ({
 
       {/* Input Container - FIXED: Better icon and placeholder spacing */}
       <div className="relative">
-        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none z-10">
+        <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none z-10">
           <User size={18} />
         </div>
         
@@ -82,7 +82,7 @@ export const Autocomplete = ({
           onChange={handleInputChange}
           onFocus={handleInputFocus}
           placeholder={placeholder}
-          className="w-full h-14 bg-white/5 border border-white/10 rounded-xl pl-12 pr-12 text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
+          className="w-full h-14 bg-white/5 border border-white/10 rounded-xl pl-[44px] pr-12 text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
           autoComplete="off"
         />
 
