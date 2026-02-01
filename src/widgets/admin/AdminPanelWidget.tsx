@@ -158,25 +158,25 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
               </span>
             </div>
 
-            {/* Кнопки Export - компактная версия на мобильных */}
+            {/* Кнопки Export - улучшенная видимость на Desktop */}
             <div className="flex gap-2 w-full sm:w-auto">
               <Button 
                 onClick={() => exportToExcel(requests)} 
                 variant="secondary" 
                 size="sm" 
-                className="flex-1 sm:flex-none bg-white/5 border-white/10 text-white/70 hover:text-white hover:bg-emerald-500/20 transition-all text-[10px] sm:text-[11px] h-8 sm:h-9 px-2 sm:px-3"
+                className="flex-1 sm:flex-none bg-white/5 border-white/10 text-white/90 hover:text-white hover:bg-emerald-500/30 hover:border-emerald-500/50 transition-all text-xs sm:text-sm h-9 sm:h-10 px-3 sm:px-4 font-bold"
               >
-                <FileSpreadsheet size={12} className="sm:mr-1" />
-                <span className="hidden sm:inline ml-1">EXCEL</span>
+                <FileSpreadsheet size={16} className="mr-1.5" />
+                <span className="uppercase tracking-wide">EXCEL</span>
               </Button>
               <Button 
                 onClick={() => exportToPDF(requests)} 
                 variant="secondary" 
                 size="sm" 
-                className="flex-1 sm:flex-none bg-white/5 border-white/10 text-white/70 hover:text-white hover:bg-red-500/20 transition-all text-[10px] sm:text-[11px] h-8 sm:h-9 px-2 sm:px-3"
+                className="flex-1 sm:flex-none bg-white/5 border-white/10 text-white/90 hover:text-white hover:bg-red-500/30 hover:border-red-500/50 transition-all text-xs sm:text-sm h-9 sm:h-10 px-3 sm:px-4 font-bold"
               >
-                <FileType size={12} className="sm:mr-1" />
-                <span className="hidden sm:inline ml-1">PDF</span>
+                <FileType size={16} className="mr-1.5" />
+                <span className="uppercase tracking-wide">PDF</span>
               </Button>
             </div>
           </div>
@@ -191,43 +191,68 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
               />
             </div>
 
-            {/* Поиск */}
+            {/* Поиск - исправлено выравнивание плейсхолдера */}
             <div className="relative flex-1 group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-red-400 transition-colors" size={14} />
-              <input 
-                type="text" 
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none z-10">
+                <Search size={16} />
+              </div>
+              <input
+                type="text"
+                placeholder="Поиск по сотруднику..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Поиск по сотруднику..." 
-                className="w-full bg-black/20 border border-white/10 rounded-xl py-2 pl-9 pr-3 text-xs sm:text-sm text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-red-500/50 focus:border-red-500/50 transition-all h-9 sm:h-10"
+                className="w-full h-10 sm:h-11 bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50 transition-all hover:bg-white/10 hover:border-white/20"
               />
+            </div>
+          </div>
+
+          {/* Фильтр по статусу */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-white/50 font-bold uppercase tracking-wider">Статус:</span>
+            <div className="flex gap-1 sm:gap-2 flex-wrap">
+              {[
+                { value: 'all', label: 'Все' },
+                { value: 'Новая', label: 'Новые' },
+                { value: 'В работе', label: 'В работе' },
+                { value: 'Завершена', label: 'Завершенные' }
+              ].map((status) => (
+                <button
+                  key={status.value}
+                  onClick={() => setStatusFilter(status.value)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${
+                    statusFilter === status.value
+                      ? 'bg-red-600 text-white shadow-lg shadow-red-600/30'
+                      : 'bg-white/5 text-white/50 hover:text-white/80 hover:bg-white/10 border border-white/10'
+                  }`}
+                >
+                  {status.label}
+                </button>
+              ))}
             </div>
           </div>
         </div>
 
         {/* Таблица заявок */}
-        <RequestsTable
-          requests={filteredRequests}
-          onView={setSelectedRequestId}
-          onDelete={handleDeleteRequest}
-          onUpdateStatus={handleUpdateRequestStatus}
-        />
+        <div className="flex-1 overflow-hidden">
+          <RequestsTable 
+            requests={filteredRequests} 
+            onView={(id) => setSelectedRequestId(id)} 
+            onDelete={handleDeleteRequest}
+            onUpdateStatus={handleUpdateRequestStatus}
+          />
+        </div>
       </Card>
 
       {/* Drawer с деталями заявки */}
       {selectedRequest && (
-        <RequestDetails
-          request={selectedRequest}
+        <RequestDetails 
+          request={selectedRequest} 
           onClose={() => setSelectedRequestId(null)}
-          onUpdateStatus={(status) => {
-            handleUpdateRequestStatus(selectedRequest.id, status);
-            setSelectedRequestId(null);
-          }}
+          onUpdateStatus={(status) => handleUpdateRequestStatus(selectedRequest.id, status)}
           onUpdate={async (data) => {
             if (updateRequest) {
               await updateRequest(selectedRequest.id, data);
             }
-            setSelectedRequestId(null);
           }}
         />
       )}
@@ -238,58 +263,48 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
   // RENDER: СОТРУДНИКИ
   // ==========================================
   const renderUsers = () => (
-    <div className="space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-      {/* Кнопка добавления - адаптивная */}
-      <Card className="bg-gradient-to-br from-indigo-600 to-indigo-800 border-indigo-500/30 p-4 sm:p-6 shadow-2xl shadow-indigo-900/40">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-sm flex-shrink-0">
-              <UserPlus size={20} className="text-white sm:w-6 sm:h-6" />
-            </div>
-            <div>
-              <h3 className="text-base sm:text-lg font-black text-white uppercase tracking-widest">Новый сотрудник</h3>
-              <p className="text-white/60 text-xs font-medium mt-1">Добавить в базу данных</p>
-            </div>
-          </div>
-          <Button 
-            onClick={() => handleOpenEditModal(null)}
-            className="w-full sm:w-auto bg-white text-indigo-900 hover:bg-gray-100 h-10 sm:h-12 px-6 sm:px-8 font-bold uppercase text-xs tracking-widest shadow-lg"
-          >
-            <UserPlus size={14} className="mr-2" />
-            Добавить
-          </Button>
-        </div>
-      </Card>
-
-      {/* Таблица сотрудников */}
-      <Card className="bg-slate-900/60 backdrop-blur-3xl border-white/10 p-0 overflow-hidden shadow-2xl">
-        <div className="p-3 sm:p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
+    <div className="h-full animate-in fade-in slide-in-from-right-4 duration-500 flex flex-col">
+      <Card className="flex-1 bg-slate-900/60 backdrop-blur-3xl border-white/10 p-0 overflow-hidden shadow-2xl flex flex-col">
+        <div className="p-4 border-b border-white/5 bg-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-white/80">
-            <Users size={18} className="text-indigo-500" />
-            <span className="font-bold tracking-widest text-xs sm:text-sm uppercase">Сотрудники</span>
+            <Users size={18} className="text-red-500" />
+            <span className="font-bold tracking-widest text-sm uppercase">Сотрудники</span>
             <span className="bg-white/10 text-[10px] px-2 py-0.5 rounded-full text-white/50">
               {employees.length}
             </span>
           </div>
+          <Button
+            onClick={() => handleOpenEditModal()}
+            className="bg-red-600 hover:bg-red-500 h-10 text-sm font-bold w-full sm:w-auto"
+          >
+            <UserPlus size={16} className="mr-2" />
+            Добавить сотрудника
+          </Button>
         </div>
 
-        <EmployeesTable
-          employees={employees}
-          onEdit={handleOpenEditModal}
-          onDelete={removeEmployee}
-        />
+        <div className="flex-1 overflow-hidden">
+          <EmployeesTable 
+            employees={employees} 
+            onEdit={handleOpenEditModal}
+            onDelete={async (id) => {
+              if (confirm('Удалить сотрудника?')) {
+                await removeEmployee(id);
+              }
+            }}
+          />
+        </div>
       </Card>
 
-      {/* Модалка редактирования */}
+      {/* Модалка редактирования сотрудника */}
       {isEditModalOpen && (
         <EmployeeEditModal
           employee={editingEmployee}
-          onSave={handleSaveEmployee}
+          isOpen={isEditModalOpen}
           onClose={() => {
             setIsEditModalOpen(false);
             setEditingEmployee(null);
-          }} 
-          isOpen={isEditModalOpen}
+          }}
+          onSave={handleSaveEmployee}
         />
       )}
     </div>

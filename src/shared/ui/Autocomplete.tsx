@@ -70,9 +70,9 @@ export const Autocomplete = ({
         </label>
       )}
 
-      {/* Input Container */}
+      {/* Input Container - FIXED: Better icon and placeholder spacing */}
       <div className="relative">
-        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none">
+        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none z-10">
           <User size={18} />
         </div>
         
@@ -82,14 +82,14 @@ export const Autocomplete = ({
           onChange={handleInputChange}
           onFocus={handleInputFocus}
           placeholder={placeholder}
-          className="w-full h-14 bg-white/5 border border-white/10 rounded-xl px-10 pr-12 text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
+          className="w-full h-14 bg-white/5 border border-white/10 rounded-xl pl-12 pr-12 text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
           autoComplete="off"
         />
 
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors z-10"
         >
           <ChevronDown 
             size={18} 

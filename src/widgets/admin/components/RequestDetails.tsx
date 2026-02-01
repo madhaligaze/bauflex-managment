@@ -162,9 +162,10 @@ export const RequestDetails = ({
 
   return (
     <>
+      {/* FIXED: Using Drawer without custom close button - Drawer has its own */}
       <Drawer isOpen={true} onClose={onClose} title={`Заявка #${request.id}`}>
         <div className="space-y-6 p-6">
-          {/* Заголовок */}
+          {/* Заголовок - removed duplicate X button */}
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-black text-white">
@@ -174,12 +175,6 @@ export const RequestDetails = ({
                 {formatDate(request.createdAt || request.date)}
               </p>
             </div>
-            <button
-              onClick={onClose}
-              className="text-white/50 hover:text-white transition"
-            >
-              <X size={24} />
-            </button>
           </div>
 
           {/* Статус */}

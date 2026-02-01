@@ -130,7 +130,7 @@ export const RequestsTable = ({ requests, onView, onDelete, onUpdateStatus }: Re
         </div>
       </motion.div>
 
-      {/* Enhanced Table */}
+      {/* Enhanced Table - FIXED alignment */}
       <div className="flex-1 overflow-auto custom-scrollbar">
         <table className="w-full text-left">
           <thead className="bg-gradient-to-r from-slate-900/90 to-slate-950/90 sticky top-0 z-10 backdrop-blur-xl border-b border-white/10">
@@ -172,18 +172,24 @@ export const RequestsTable = ({ requests, onView, onDelete, onUpdateStatus }: Re
                   {/* Hover accent line */}
                   <td className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-red-500/0 via-red-500/50 to-red-500/0 opacity-0 group-hover:opacity-100 transition-opacity" />
                   
-                  <td className="p-4 pl-6 font-bold text-white group-hover:text-red-400 transition-colors">
-                    {req.user}
+                  {/* FIXED: ФИО cell - proper alignment */}
+                  <td className="p-4 pl-6">
+                    <div className="font-bold text-white group-hover:text-red-400 transition-colors">
+                      {req.user}
+                    </div>
                   </td>
+                  
                   <td className="p-4">
                     <span className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase border ${typeMap[req.type]?.color || 'bg-white/10 text-white border-white/20'} inline-flex items-center gap-1.5`}>
                       <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
                       {typeMap[req.type]?.label || req.type}
                     </span>
                   </td>
+                  
                   <td className="p-4 text-white/60 text-xs font-mono tabular-nums">
                     {formatDate(req.createdAt || req.date)}
                   </td>
+                  
                   <td className="p-4">
                     <div className="flex items-center gap-2">
                       <span className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase border inline-flex items-center gap-1.5 ${
@@ -224,6 +230,7 @@ export const RequestsTable = ({ requests, onView, onDelete, onUpdateStatus }: Re
                       )}
                     </div>
                   </td>
+                  
                   <td className="p-4 text-right pr-6">
                     <div className="flex items-center justify-end gap-2">
                       <motion.button 
