@@ -312,7 +312,7 @@ export const AdminPanelWidget = ({ onLogout }: { onLogout: () => void }) => {
         <div className="flex items-center justify-between mb-8 px-2">
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-white uppercase tracking-wider leading-tight">
-              ПАНЕЛЬ АДМИНИСТРАТОРА
+              Записи сотрудников
             </h1>
             <p className="text-white/30 text-[10px] md:text-xs tracking-[0.2em] uppercase font-bold mt-1.5 ml-0.5">
               BAUFLEX Management System
